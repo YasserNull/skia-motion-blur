@@ -1,0 +1,27 @@
+#!/sbin/sh
+
+umask 022
+
+# Error reporting must work before Magisk's helpers are available.
+ui_print() { echo "$1"; }
+
+require_manager() {
+    ui_print "Install this ZIP from the Magisk 21+, KernelSU or APatch manager app."
+    exit 1
+}
+
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null
+
+# KernelSU and APatch use their own installers and source customize.sh directly.
+[ -f /data/adb/magisk/util_functions.sh ] || require_manager
+. /data/adb/magisk/util_functions.sh
+case "${MAGISK_VER_CODE:-}" in
+    ''|*[!0-9]*) require_manager ;;
+esac
+[ "$MAGISK_VER_CODE" -ge 21000 ] || require_manager
+
+install_module
+exit 0

@@ -1,0 +1,10 @@
+enabled=1
+strength=8.0
+exposure_ms=16.667
+temp_settings=0
+log=0
+debug=0
+allow_packages=*
+history_scale=4
+history_timeout_ms=150
+memory_limit_mb=48

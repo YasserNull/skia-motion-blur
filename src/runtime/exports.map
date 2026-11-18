@@ -1,0 +1,15 @@
+{
+    global:
+        eglGetProcAddress;
+        eglGetNativeClientBufferANDROID;
+        eglCreateImageKHR;
+        eglCreateImage;
+        eglDestroyImageKHR;
+        eglDestroyImage;
+        eglCreateSyncKHR;
+        eglCreateSync;
+        eglDestroyContext;
+        glEGLImageTargetTexture2DOES;
+        glDeleteTextures;
+    local: *;
+};

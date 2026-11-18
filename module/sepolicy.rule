@@ -1,0 +1,4 @@
+type skia_motion_blur_data_file { file_type data_file_type core_data_file_type }
+allow surfaceflinger skia_motion_blur_data_file dir { search open read getattr write add_name remove_name }
+allow surfaceflinger skia_motion_blur_data_file file { create open read write getattr setattr unlink rename }
+allow surfaceflinger surfaceflinger_exec file execute_no_trans

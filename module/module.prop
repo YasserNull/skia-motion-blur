@@ -1,0 +1,6 @@
+id=skia-motion-blur
+name=Skia Motion Blur
+version=1.0.0-beta
+versionCode=1
+author=@YasserNull
+description=Experimental SurfaceFlinger-only UI motion blur. Android 12–16, GLES RenderEngine. Settings: /sdcard/skia-motion-blur.prop

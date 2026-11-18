@@ -1,0 +1,42 @@
+cmake_minimum_required(VERSION 3.18)
+project(skia_motion_blur_checks LANGUAGES C)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+find_package(Threads REQUIRED)
+enable_testing()
+# Keep assert-based checks active even in release builds.
+add_compile_options(-Wall -Wextra -Werror -UNDEBUG)
+add_compile_definitions(_POSIX_C_SOURCE=200809L)
+# Public include paths and thread linkage propagate to configuration consumers.
+add_library(skia_motion_blur_config STATIC src/skia_motion_blur_config.c src/config_cache.c src/utils.c)
+target_include_directories(skia_motion_blur_config PUBLIC src/include)
+target_link_libraries(skia_motion_blur_config PUBLIC Threads::Threads)
+add_executable(skia_motion_blur_config_test tests/config_test.c)
+target_link_libraries(skia_motion_blur_config_test PRIVATE skia_motion_blur_config)
+add_test(NAME config COMMAND skia_motion_blur_config_test "${CMAKE_CURRENT_SOURCE_DIR}/module/skia-motion-blur.prop")
+add_executable(skia_motion_blur_config_reload_test tests/config_reload_test.c)
+target_link_libraries(skia_motion_blur_config_reload_test PRIVATE skia_motion_blur_config)
+# Linker wrappers inject allocation and file-open failures into cache loading.
+target_link_options(skia_motion_blur_config_reload_test PRIVATE -Wl,--wrap=calloc,--wrap=fopen)
+add_test(NAME config_reload COMMAND skia_motion_blur_config_reload_test)
+add_executable(skia_motion_blur_focus_test src/runtime/focus.c tests/focus_test.c)
+target_include_directories(skia_motion_blur_focus_test PRIVATE src/runtime)
+target_link_libraries(skia_motion_blur_focus_test PRIVATE Threads::Threads)
+add_test(NAME focus COMMAND skia_motion_blur_focus_test)
+include(CheckIncludeFile)
+# Controller and launcher checks depend on Android platform headers.
+check_include_file(sys/system_properties.h SKIA_MOTION_BLUR_ANDROID_HEADERS)
+if(SKIA_MOTION_BLUR_ANDROID_HEADERS)
+    add_executable(skia_motion_blur_controller_test tests/controller_test.c src/runtime/focus.c src/runtime/control.c)
+    target_link_libraries(skia_motion_blur_controller_test PRIVATE skia_motion_blur_config)
+    add_test(NAME controller COMMAND skia_motion_blur_controller_test)
+    # Rename the launcher entry point so the harness can provide main.
+    add_library(skia_motion_blur_launcher_object OBJECT src/runtime/launcher.c)
+    target_include_directories(skia_motion_blur_launcher_object PRIVATE src/include)
+    target_compile_definitions(skia_motion_blur_launcher_object PRIVATE main=launcher_entry)
+    add_executable(skia_motion_blur_launcher_test tests/launcher_test.c $<TARGET_OBJECTS:skia_motion_blur_launcher_object>)
+    # Wrap process and file operations without replacing a real compositor.
+    target_link_options(skia_motion_blur_launcher_test PRIVATE
+        -Wl,--wrap=getuid,--wrap=__system_property_get,--wrap=access,--wrap=open,--wrap=fstat,--wrap=read,--wrap=lseek,--wrap=ftruncate,--wrap=write,--wrap=fsync,--wrap=close,--wrap=execv)
+    add_test(NAME launcher COMMAND skia_motion_blur_launcher_test)
+endif()
