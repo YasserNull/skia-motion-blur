@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/downloads/YasserNull/skia-motion-blur/total?label=Downloads"/>
   <img src="https://img.shields.io/github/v/release/YasserNull/skia-motion-blur?include_prereleases&label=Release"/>
-  <img src="https://img.shields.io/badge/License-GPLv3-blue.svg"/>
+  <img src="https://img.shields.io/badge/License-LGPLv2.1-blue.svg"/>
 </p>
 
 # Skia Motion Blur
@@ -79,6 +79,14 @@
 
 يستخدم المشروع ملف `skia-motion-blur.prop` بصيغة `key=value` داخل مجلد الوحدة.
 
+ستجد الملف في المسار التالي حسب نوع الروت لديك:
+- **Magisk:** `/data/adb/modules/skia-motion-blur/skia-
+motion-blur.prop`
+- **KernelSU:** `/data/adb/ksu/modules/skia-motion-
+blur/skia-motion-blur.prop`
+- **APatch:** `/data/adb/modules/skia-motion-blur/skia-
+motion-blur.prop`
+
 ### الإعدادات الافتراضية
 
 ```properties
@@ -134,9 +142,8 @@ allow_packages=com.android.settings,com.android.launcher3
 
 ### تحديث الإعدادات
 
-عند ضبط `temp_settings=1`، يعيد المتحكم قراءة ملف الوحدة كل خمس ثوانٍ تقريبًا، وتفحص مكتبة التأثير النسخة الداخلية أثناء الرسم كل ثانية تقريبًا.
-
-عند ضبط `temp_settings=0`، لا يراقب المتحكم التغييرات دوريًا بعد التهيئة. يُختار هذا النمط عند بدء المتحكم، لذلك يتطلب تغيير `temp_settings` نفسه إعادة بدء المتحكم.
+- **`temp_settings=1`:** التحقق من تغييرات ملف الإعدادات كل 5 ثوانٍ وتطبيقها مباشرة دون إعادة تشغيل.
+- **`temp_settings=0`:** تعطيل التحقق التلقائي، وتتطلب التغييرات إعادة تشغيل الجهاز لتطبيقها.
 
 ### استهلاك الذاكرة
 
