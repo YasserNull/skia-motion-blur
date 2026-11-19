@@ -1,23 +1,15 @@
 # Skia Motion Blur
 
+![logo](docs/images/logo.png)
+
 <p align="center">
-  <img src="https://github.com/YasserNull/skia-motion-blur/blob/main/docs/images/logo.png?raw=true" alt="Skia Motion Blur" width="600">
+  <img src="https://img.shields.io/github/downloads/YasserNull/skia-motion-blur/total?label=Downloads"/>
+  <img src="https://img.shields.io/github/v/release/YasserNull/skia-motion-blur?include_prereleases&label=Release"/>
+  <img src="https://img.shields.io/badge/License-LGPLv2.1-blue.svg"/>
 </p>
 
 <p align="center">
   <strong>ضبابية حركة متقدمة لنظام أندرويد.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/YasserNull/skia-motion-blur/releases">
-    <img src="https://img.shields.io/github/downloads/YasserNull/skia-motion-blur/total?style=for-the-badge&label=Downloads" alt="Downloads">
-  </a>
-  <a href="https://github.com/YasserNull/skia-motion-blur/releases">
-    <img src="https://img.shields.io/github/v/release/YasserNull/skia-motion-blur?include_prereleases&style=for-the-badge&label=Release" alt="Release">
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/License-GPLv3-blue?style=for-the-badge" alt="License">
-  </a>
 </p>
 
 ---
