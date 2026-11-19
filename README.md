@@ -3,12 +3,12 @@
 <p align="center">
   <img src="https://img.shields.io/github/downloads/YasserNull/skia-motion-blur/total?label=Downloads"/>
   <img src="https://img.shields.io/github/v/release/YasserNull/skia-motion-blur?include_prereleases&label=Release"/>
-  <img src="https://img.shields.io/badge/License-LGPLv2.1-blue.svg"/>
+  <img src="https://img.shields.io/badge/License-GPLv3-blue.svg"/>
 </p>
 
 # Skia Motion Blur
 
-وحدة ماجيسك تضيف تأثير ضبابية الحركة للأندرويد
+Got motion blur on your Android!
 ---
 
 ## ما هي Skia Motion Blur؟
