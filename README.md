@@ -1,5 +1,3 @@
-# Skia Motion Blur
-
 ![logo](docs/images/logo.png)
 
 <p align="center">
@@ -8,23 +6,21 @@
   <img src="https://img.shields.io/badge/License-LGPLv2.1-blue.svg"/>
 </p>
 
-<p align="center">
-  <strong>ضبابية حركة متقدمة لنظام أندرويد.</strong>
-</p>
+# Skia Motion Blur
+
+Magisk Module adds Motion Blur For Android 
 
 ---
 
 ## ما هي Skia Motion Blur؟
 
-**Skia Motion Blur** وحدة روت مفتوحة المصدر لنظام أندرويد، تضيف تأثير ضبابية الحركة (Motion Blur) إلى واجهة النظام والتطبيقات والألعاب، لجعل الحركة أكثر سلاسة بصريًا.
-
-تعمل الوحدة داخل عملية `SurfaceFlinger`، وتعترض مسارات الرسم المدعومة عبر `EGL/OpenGL ES` لتقدير الحركة بين الإطارات وتطبيق ضبابية اتجاهية على خرج تركيب الإطارات المؤهل.
-
-### لماذا سُمّيت Skia Motion Blur؟
+**Skia Motion Blur** وحدة ماجيسك تضيف تأثير ضبابية الحركة (Motion Blur) إلى واجهة النظام والتطبيقات والألعاب، لجعل الحركة أكثر سلاسة بصريًا.
 
 استُوحي الاسم من مكتبة الرسوميات **Skia** المستخدمة في أندرويد. لكن التنفيذ الحالي لا يعترض مكتبة Skia مباشرةً؛ بل يعمل داخل `SurfaceFlinger`.
 
 ## How Skia Motion Blur Works
+
+تعمل الوحدة داخل عملية `SurfaceFlinger`، وتعترض مسارات الرسم المدعومة عبر `EGL/OpenGL ES` لتقدير الحركة بين الإطارات وتطبيق ضبابية اتجاهية على خرج تركيب الإطارات المؤهل.
 
 تقوم **Skia Motion Blur** بحقن مكتبة أصلية داخل عملية `SurfaceFlinger` في أندرويد باستخدام `LD_PRELOAD`. وتعترض مسارات الرسم المدعومة عبر `EGL/OpenGL ES`، وتحلل الحركة بين الإطارات المتتالية، ثم تطبّق ضبابية حركة اتجاهية على خرج تركيب الإطارات المؤهل.
 
@@ -33,6 +29,9 @@
 ## المميزات
 
 - **حركة أكثر سلاسة بصريًا:** إضافة ضبابية الحركة أثناء التمرير والتنقل بين التطبيقات، وحركات واجهة النظام والألعاب.
+- **دعم الألعاب:** تأثير يضهر ف العاب
+- **التخصيص:** يمكنك تحديد تطبيقات معينة و تعديل اعدادات تأثير
+- **اداء سريع** لا تقوم الوحدة ب إبطاء الهاتف ، كما انها مصممة بلغة c السريعة
 
 ## المتطلبات والتوافق
 
@@ -48,7 +47,7 @@
 
 ### لماذا Android 12 فما فوق؟
 
-يستهدف التنفيذ الحالي واجهات ومسارات `SurfaceFlinger` و`EGL` ضمن API 31–36. تختلف تفاصيل التنفيذ في الإصدارات الأقدم، لذلك يرفض المثبّت الإصدارات الأقل من Android 12. لا يعني ذلك استحالة دعمها مستقبلًا.
+يستهدف التنفيذ الحالي واجهات ومسارات `SurfaceFlinger` و`EGL` ضمن API 31–36. تختلف تفاصيل التنفيذ في الإصدارات الأقدم، لذلك يرفض المثبّت الإصدارات الأقل من Android 12.
 
 ### توافق الإصدارات
 
@@ -66,8 +65,7 @@
 
 تعمل الوحدة داخل عملية `SurfaceFlinger`، وقد تتسبب في حدوث **Bootloop** على بعض الأجهزة أو الرومات غير المتوافقة.
 
-**يُنصح بشدة بتثبيت وحدة Bootloop Protector قبل تثبيت Skia Motion Blur.** قد تساعد في الاسترداد عند حدوث مشكلة، لكنها لا تضمن التعافي في جميع الحالات.
-
+**يُنصح بشدة بتثبيت وحدة Bootloop Protector قبل تثبيت Skia Motion Blur.** قد تساعد في الاسترداد عند حدوث مشكلة،.
 ### خطوات التثبيت
 
 1. نزّل أحدث ملف ZIP من [صفحة الإصدارات](https://github.com/YasserNull/skia-motion-blur/releases).
@@ -84,15 +82,16 @@
 
 ```properties
 enabled=1
-strength=3.0
+strength=8.0
 exposure_ms=16.667
-temp_settings=1
+temp_settings=0
 log=0
 debug=0
 allow_packages=*
 history_scale=4
 history_timeout_ms=150
 memory_limit_mb=48
+quality=high
 ```
 
 ### شرح الإعدادات
@@ -145,31 +144,9 @@ allow_packages=com.android.settings,com.android.launcher3
 
 عند ضبط `temp_settings=0`، لا يراقب المتحكم التغييرات دوريًا بعد التهيئة. يُختار هذا النمط عند بدء المتحكم، لذلك يتطلب تغيير `temp_settings` نفسه إعادة بدء المتحكم.
 
-## الأداء والقيود
-
-- تتطلب المعالجة مسار `OpenGL ES 3` ومخرج رسم مؤهلًا.
-- لا يوجد اعتراض لمسار Vulkan داخل `RenderEngine`.
-- لا تدعم الوحدة المحتوى المحمي أو مخارج HDR.
-- يقبل المرشح مخارج القوام المتوافقة بصيغتي `R8G8B8A8_UNORM` و`R8G8B8X8_UNORM`، وبأبعاد لا تقل عن `256×256`، وفق شروط الرسم الأخرى.
-- قد تؤدي الأنماط المتكررة أو الحركة المعقدة إلى أخطاء في تقدير الحركة.
-- قد تزيد الوحدة استهلاك GPU والذاكرة والطاقة، ولا تضمن زيادة FPS.
-
 ### استهلاك الذاكرة
 
 يحدد `memory_limit_mb` الحد التقديري لذاكرة القوام لكل سياق رسم. ويعتمد التقدير على أبعاد الشاشة وقيمة `history_scale`:
-
-```text
-hw = ceil(width / history_scale)
-hh = ceil(height / history_scale)
-
-estimated_bytes =
-    4
-    + 8 * hw * hh
-    + 4 * ceil(hw / 16) * ceil(hh / 16)
-
-if history_scale > 1:
-    estimated_bytes += 4 * width * height
-```
 
 لا يشمل هذا التقدير بالضرورة جميع الموارد الداخلية لتعريف الرسوميات.
 
@@ -186,35 +163,6 @@ log=1
 ```sh
 su -c 'logcat -d -s SkiaMotionBlur'
 ```
-
-لعرض الحالة:
-
-```sh
-su -c 'cat /data/misc/skia-motion-blur/skia-motion-blur.status'
-```
-
-### حالات التشغيل
-
-| الحالة | المعنى |
-|---|---|
-| `invalid-config` | إعدادات غير صالحة |
-| `config-copy-failed` | فشل نشر إعدادات التشغيل |
-| `inactive-foreground` | التطبيق الأمامي غير مؤهل أو التأثير غير نشط |
-| `armed-awaiting-gles-output` | انتظار مخرج GLES مؤهل |
-| `gles-output-detected` | اكتشاف مخرج GLES مناسب |
-| `no-eligible-gles-output` | لم يُكتشف مخرج مناسب خلال المهلة |
-| `unsupported-composition-control` | تعذّر تأكيد التحكم بتركيب العرض |
-
-قد تتوفر ملفات تشخيص إضافية داخل:
-
-```text
-/data/adb/modules/skia-motion-blur/
-/data/misc/skia-motion-blur/
-```
-
-ومنها `boot-error.txt` و`stock-source.txt` و`loader-probe.txt` و`skia-motion-blur.launches`.
-
-راجع [VALIDATION.md](VALIDATION.md) لمزيد من تفاصيل التحقق والاختبار.
 
 ## البناء من المصدر
 
@@ -238,28 +186,6 @@ release/skia-motion-blur-<version>.zip
 ```
 
 يستخدم المشروع C11 وتحسينات `-O2`، ويستهدف API 31 كحد أدنى. تتضمن الحزمة ملف `binaries.sha256.json` لبصمات الملفات الثنائية.
-
-## بنية المشروع
-
-| المسار | الوظيفة |
-|---|---|
-| `src/runtime/hooks.c` | اعتراض واجهات EGL/GLES |
-| `src/runtime/tracking.c` | تتبع موارد الرسم |
-| `src/runtime/filter.c` | اختيار مخارج الرسم المؤهلة |
-| `src/runtime/renderer.c` | معالجة الإطارات |
-| `src/runtime/renderer_resources.c` | إدارة موارد الرسم |
-| `src/runtime/gl_state.c` | حفظ حالة OpenGL واستعادتها |
-| `src/runtime/motion.glsl` | تقدير الحركة وتطبيق الضبابية |
-| `src/runtime/controller.c` | خدمة التحكم |
-| `src/runtime/focus.c` | تحديد التطبيق الأمامي |
-| `src/runtime/control.c` | التحكم بتركيب العرض |
-| `src/runtime/launcher.c` | تشغيل SurfaceFlinger باستخدام LD_PRELOAD |
-| `src/runtime/repaint.c` | طلب إطارات التنظيف |
-| `src/skia_motion_blur_config.c` | تحليل الإعدادات |
-| `src/config_cache.c` | إعادة تحميل الإعدادات |
-| `module/` | التثبيت والإقلاع |
-| `tools/` | أدوات البناء |
-| `tests/` | الاختبارات |
 
 ## الاختبارات
 
