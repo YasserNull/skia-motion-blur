@@ -145,11 +145,7 @@ bool mb_parse_config(const char *text, size_t size, MbConfig *result) {
         else if (!strcmp(key, "log")) valid = boolean(value, &next->log);
         else if (!strcmp(key, "strength")) valid = mb_parse_float(value, &next->strength, 0.0f, 8.0f);
         else if (!strcmp(key, "exposure_ms")) valid = mb_parse_float(value, &next->exposure_ms, 1.0f, 50.0f);
-        else if (!strcmp(key, "quality")) {
-            if (!strcmp(value, "low")) { next->history_scale = 4; valid = true; }
-            else if (!strcmp(value, "balanced")) { next->history_scale = 2; valid = true; }
-            else if (!strcmp(value, "high")) { next->history_scale = 1; valid = true; }
-        } else if (!strcmp(key, "max_layers")) valid = number(value, &next->max_layers, 1, 8);
+        else if (!strcmp(key, "max_layers")) valid = number(value, &next->max_layers, 1, 8);
         else if (!strcmp(key, "history_scale")) valid = number(value, &next->history_scale, 1, 4);
         else if (!strcmp(key, "history_timeout_ms")) valid = number(value, &next->history_timeout_ms, 16, 250);
         else if (!strcmp(key, "memory_limit_mb")) valid = number(value, &next->memory_limit_mb, 8, 128);

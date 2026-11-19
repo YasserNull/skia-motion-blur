@@ -39,8 +39,11 @@ int main(int argc, char **argv) {
     char disabled[PATH_MAX], removed[PATH_MAX];
     int disabled_size = snprintf(disabled, sizeof(disabled), "%s/disable", argv[1]);
     int removed_size = snprintf(removed, sizeof(removed), "%s/remove", argv[1]);
+    char settings_path[PATH_MAX];
+    int settings_size = snprintf(settings_path, sizeof(settings_path), "%s/skia-motion-blur.prop", argv[1]);
     if (disabled_size < 0 || (size_t)disabled_size >= sizeof(disabled) ||
-        removed_size < 0 || (size_t)removed_size >= sizeof(removed)) return 1;
+        removed_size < 0 || (size_t)removed_size >= sizeof(removed) ||
+        settings_size < 0 || (size_t)settings_size >= sizeof(settings_path)) return 1;
     char *previous_config = NULL;
     char *previous_package = NULL;
     const char *previous_reason = "";
@@ -57,7 +60,7 @@ int main(int argc, char **argv) {
             char *source = malloc(MB_CONFIG_MAX_TEXT + 2);
             MbConfig *next = mb_config_create();
             if (!source || !next) { free(source); mb_config_free(next); break; }
-            size_t size = mb_read_text("/sdcard/skia-motion-blur.prop", source, MB_CONFIG_MAX_TEXT + 2);
+            size_t size = mb_read_text(settings_path, source, MB_CONFIG_MAX_TEXT + 2);
             bool next_valid = size && mb_parse_config(source, size, next);
             // The first valid load fixes the settings mode for this controller run.
             if (next_valid && !mode_selected) {

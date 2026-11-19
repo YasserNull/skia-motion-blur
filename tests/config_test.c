@@ -25,21 +25,18 @@ int main(int argc, char **argv) {
         "allow_packages=com.example.*", "allow_packages=*,com.example.app", "allow_packages=com.example.app,*",
         "allow_packages=com.example.app,", "allow_packages=com.example.app,  ", "allow_layer_prefixes=*",
         "exposure_ms=0.99", "exposure_ms=50.01", "exposure_ms=nan", "exposure_ms=inf",
-        "temp_settings=maybe", "log=2", "log=maybe", "quality=ultra"};
+        "temp_settings=maybe", "log=2", "log=maybe", "quality=low"};
     for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
         assert(!parse(invalid[i], config));
         assert(config->enabled && config->strength == 0.25f);
         assert(mb_config_allows_package(config, "com.example.app"));
     }
-    assert(parse("exposure_ms=1\ntemp_settings=0\nlog=true\nquality=high\n", config));
-    assert(config->exposure_ms == 1 && !config->temp_settings && config->log && config->history_scale == 1);
+    assert(parse("exposure_ms=1\ntemp_settings=0\nlog=true\n", config));
+    assert(config->exposure_ms == 1 && !config->temp_settings && config->log);
     assert(parse("log=true\n", config) && config->log);
     assert(parse("log=0\n", config) && !config->log);
-    assert(parse("exposure_ms=50\nquality=balanced\n", config));
-    assert(config->exposure_ms == 50 && config->history_scale == 2);
-    assert(parse("quality=low\n", config) && config->history_scale == 4);
-    assert(parse("quality=high\nhistory_scale=3\n", config) && config->history_scale == 3);
-    assert(parse("history_scale=3\nquality=high\n", config) && config->history_scale == 1);
+    assert(parse("exposure_ms=50\nhistory_scale=3\n", config));
+    assert(config->exposure_ms == 50 && config->history_scale == 3);
     assert(parse("# defaults\r\n enabled = true\r\nallow_packages=*\n", config));
     assert(config->temp_settings && !config->log && config->exposure_ms > 16.66f && config->exposure_ms < 16.68f);
     assert(config->strength == 3 && mb_config_allows_package(config, "com.example.game"));
