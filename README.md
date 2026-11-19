@@ -60,11 +60,13 @@
 
 ## التثبيت
 
-### تحذير قبل التثبيت
+> [!CAUTION]
+> ### تحذير قبل التثبيت
+>
+> تعمل الوحدة داخل عملية `SurfaceFlinger`، وقد تتسبب في حدوث **Bootloop** على بعض الأجهزة أو الرومات غير المتوافقة.
+>
+> **يُنصح بشدة بتثبيت وحدة Bootloop Protector قبل تثبيت Skia Motion Blur.** قد تساعد في استرداد الجهاز عند حدوث مشكلة.
 
-تعمل الوحدة داخل عملية `SurfaceFlinger`، وقد تتسبب في حدوث **Bootloop** على بعض الأجهزة أو الرومات غير المتوافقة.
-
-**يُنصح بشدة بتثبيت وحدة Bootloop Protector قبل تثبيت Skia Motion Blur.** قد تساعد في الاسترداد عند حدوث مشكلة،.
 ### خطوات التثبيت
 
 1. نزّل أحدث ملف ZIP من [صفحة الإصدارات](https://github.com/YasserNull/skia-motion-blur/releases).
@@ -153,7 +155,7 @@ log=1
 لعرض سجلات الوحدة:
 
 ```sh
-su -c 'logcat -d -s SkiaMotionBlur'
+logcat -s SkiaMotionBlur
 ```
 
 ## البناء من المصدر
