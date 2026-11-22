@@ -20,6 +20,10 @@ else
 fi
 SDK=$(getprop ro.build.version.sdk)
 [ "$SDK" -ge 31 ] && [ "$SDK" -le 36 ] || abort "Supported range: Android 12–16 / API 31–36"
+if [ "$ROOT_MANAGER" = Magisk ]; then
+    [ -n "${MAGISKTMP:-}" ] && [ -d "$MAGISKTMP/.magisk/preinit" ] ||
+        abort "Magisk preinit directory is missing; custom SELinux rules cannot be installed"
+fi
 STOCK="$MODPATH/stock/surfaceflinger"
 mkdir -p "$MODPATH/stock" || abort "Cannot create compositor snapshot directory"
 . "$MODPATH/extract.sh"
@@ -65,4 +69,4 @@ for FILE in controller service.sh post-fs-data.sh late-load.sh uninstall.sh; do
   set_perm "$MODPATH/$FILE" 0 0 0755
 done
 "$MODPATH/controller" --probe || abort "Selected ABI cannot execute on this device"
-Experimental: reboot required; compositor integration not device-verified"
+ui_print "- Experimental: reboot required; compositor integration not device-verified"

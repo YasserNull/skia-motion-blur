@@ -49,14 +49,21 @@ void mb_filter_output(void) {
                                              GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING, &encoding);
         if (encoding != GL_LINEAR || glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { reason = "framebuffer-encoding-or-incomplete"; break; }
         MbRenderer *current = mb_tracking_renderer(context, true);
-        if (!current || !mb_renderer_apply(current, framebuffer, descriptor.width, descriptor.height, settings, active)) { reason = "renderer-unavailable"; break; }
+        if (!current || !mb_renderer_apply(current, framebuffer, texture, descriptor.width, descriptor.height, settings, active)) { reason = "renderer-unavailable"; break; }
         reason = "eligible-render";
         if (current->repaint_needed) mb_request_repaint(active);
         static uint64_t reported;
-        if (mb_millis() - reported > 400) {
+        if (current->ready && current->session == active && mb_millis() - reported > 400) {
             reported = mb_millis();
             FILE *file = fopen("/data/misc/skia-motion-blur/skia-motion-blur.gles", "we");
-            if (file) { fprintf(file, "%llu\n", (unsigned long long)reported); fclose(file); }
+            if (file) {
+                // The controller reads the leading timestamp; the remaining lines describe the active path.
+                fprintf(file, "%llu\ntest=%s\nguide=%s\ncomposite=%s\nhistory=%ux%u\ntexture_bytes=%llu\n",
+                        (unsigned long long)reported, mb_test_name(current->test),
+                        mb_renderer_guide_name(current), current->composite_path,
+                        current->history_width, current->history_height, (unsigned long long)current->memory_bytes);
+                fclose(file);
+            }
         }
         static bool logged;
         if (settings->log && !logged) {

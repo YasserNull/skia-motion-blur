@@ -86,6 +86,22 @@ class InstallerManagerTests(unittest.TestCase):
         self.assertIn("Install from the root manager app", result.stderr)
         self.assertNotIn("SDK_CHECK_REACHED", result.stderr)
 
+    def test_magisk_without_preinit_is_rejected_before_installation(self):
+        harness = r'''
+abort() { printf '%s\n' "$*" >&2; exit 90; }
+getprop() { printf '33\n'; }
+. "$1"
+'''
+        with tempfile.TemporaryDirectory() as temporary:
+            environment = os.environ.copy()
+            environment.update(BOOTMODE="true", MAGISK_VER_CODE="26000",
+                               MAGISKTMP=temporary, MODPATH=str(Path(temporary) / "module"))
+            result = subprocess.run(["sh", "-c", harness, "installer-test", str(ROOT / "module/customize.sh")],
+                                    env=environment, text=True, capture_output=True, timeout=5)
+            self.assertEqual(result.returncode, 90)
+            self.assertIn("Magisk preinit directory is missing", result.stderr)
+            self.assertFalse((Path(temporary) / "module/stock").exists())
+
 
 class MountedSystemTests(unittest.TestCase):
     def run_service(self, alias, launcher):
@@ -98,8 +114,8 @@ cmp() { command [ "$LAUNCHER_MATCH" = true ]; }
        command [ "$3" = /data/misc/skia-motion-blur/runtime/surfaceflinger ]; then
         command [ "$ALIAS_MOUNTED" != true ]; return
     fi
-    if command [ "$1" = -d ] && command [ "$2" = /sdcard/Android ]; then
-        printf 'STORAGE_CHECK_REACHED\n'; exit 77
+    if command [ "$1" = "!" ] && command [ "$2" = -e ] && command [ "$3" = "${0%/*}/disable" ]; then
+        printf 'SUPERVISION_REACHED\n'; exit 77
     fi
     command [ "$@"
 }
@@ -118,17 +134,17 @@ cmp() { command [ "$LAUNCHER_MATCH" = true ]; }
         result, error = self.run_service(False, False)
         self.assertEqual(result.returncode, 1)
         self.assertIn("system files are not mounted", error)
-        self.assertNotIn("STORAGE_CHECK_REACHED", result.stdout)
+        self.assertNotIn("SUPERVISION_REACHED", result.stdout)
 
     def test_another_launcher_mount_stops_before_controller(self):
         result, error = self.run_service(True, False)
         self.assertEqual(result.returncode, 1)
         self.assertIn("system files are not mounted", error)
 
-    def test_mounted_files_pass_to_storage_check(self):
+    def test_mounted_files_reach_controller_supervision(self):
         result, error = self.run_service(True, True)
         self.assertEqual(result.returncode, 77, result.stderr)
-        self.assertIn("STORAGE_CHECK_REACHED", result.stdout)
+        self.assertIn("SUPERVISION_REACHED", result.stdout)
         self.assertEqual(error, "")
 
 
@@ -173,7 +189,8 @@ set_perm() { chmod "$4" "$1"; }
 . "$1"
 """
             environment = os.environ.copy()
-            environment.update(MAGISK_VER_CODE="26000", BOOTMODE="true", MODPATH=str(module))
+            (tree / ".magisk/preinit").mkdir(parents=True)
+            environment.update(MAGISK_VER_CODE="26000", BOOTMODE="true", MODPATH=str(module), MAGISKTMP=str(tree))
             result = subprocess.run(["sh", "-c", harness, "installer-test", str(script)],
                                     env=environment, text=True, capture_output=True, timeout=5)
             mounted = {str(path.relative_to(module / "system"))

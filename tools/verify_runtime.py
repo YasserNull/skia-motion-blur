@@ -62,7 +62,7 @@ def main():
             if not name.endswith("/launcher"):
                 assert b"/data/misc/skia-motion-blur/skia-motion-blur.prop\0" in data, name
         metadata = dict(line.split("=", 1) for line in archive.read("module.prop").decode().splitlines())
-        assert metadata["id"] == "skia-motion-blur" and metadata["name"] == "Skia Motion Blur" and metadata["author"] == "YasserNull"
+        assert metadata["id"] == "skia-motion-blur" and metadata["name"] == "Skia Motion Blur" and metadata["author"] == "@YasserNull"
         assert archive.read("module.prop") == (ROOT / "module/module.prop").read_bytes()
         assert archive.read("skia-motion-blur.prop") == (ROOT / "module/skia-motion-blur.prop").read_bytes()
         assert not any(name.startswith("zygisk/") for name in names)
@@ -73,7 +73,8 @@ def main():
             if path.suffix == ".sh" or path.name == "update-binary":
                 subprocess.run(["sh", "-n", str(path)], check=True)
             assert archive.read(path.relative_to(ROOT / "module").as_posix()) == path.read_bytes()
-        assert archive.read("README.md") == (ROOT / "README.md").read_bytes()
+        for document in ("README.md", "docs/performance_report.md", "docs/renderer-benchmark.csv"):
+            assert archive.read(document) == (ROOT / document).read_bytes()
     print("PASS: ZIP integrity, identity, 12 ELF binaries, ABI, 16KB alignment, SHA-256, shell syntax, packaged sources")
 
 

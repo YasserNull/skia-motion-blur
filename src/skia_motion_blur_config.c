@@ -82,6 +82,25 @@ static bool boolean(const char *value, bool *out) {
     return true;
 }
 
+static const char *const test_modes[] = {
+    [MB_TEST_BALANCED] = "balanced", [MB_TEST_REFERENCE] = "reference",
+    [MB_TEST_PARALLEL] = "parallel", [MB_TEST_FETCH] = "fetch"
+};
+
+const char *mb_test_name(MbTestMode mode) {
+    return (unsigned)mode < sizeof(test_modes) / sizeof(test_modes[0]) ? test_modes[mode] : "unknown";
+}
+
+static bool parse_test(const char *value, MbTestMode *mode) {
+    for (size_t i = 0; i < sizeof(test_modes) / sizeof(test_modes[0]); ++i) {
+        if (!strcmp(value, test_modes[i])) {
+            *mode = (MbTestMode)i;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool mb_config_allows_package(const MbConfig *config, const char *package) {
     if (!config->enabled || config->strength <= 0 || !package || !*package) return false;
     for (size_t i = 0; i < config->packages.count; ++i) {
@@ -140,6 +159,7 @@ bool mb_parse_config(const char *text, size_t size, MbConfig *result) {
         char *value = trim(equal + 1);
         valid = false;
         if (!strcmp(key, "enabled")) valid = boolean(value, &next->enabled);
+        else if (!strcmp(key, "test")) valid = parse_test(value, &next->test);
         else if (!strcmp(key, "debug")) valid = boolean(value, &next->debug);
         else if (!strcmp(key, "temp_settings")) valid = boolean(value, &next->temp_settings);
         else if (!strcmp(key, "log")) valid = boolean(value, &next->log);

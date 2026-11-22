@@ -2,6 +2,8 @@
 #include "shaders.h"
 #include "log.h"
 #include <utils.h>
+#include <string.h>
+#include <GLES2/gl2ext.h>
 
 #define ARRAY_SIZE(value) (sizeof(value) / sizeof((value)[0]))
 
@@ -20,15 +22,13 @@ static GLuint shader(GLenum kind, const char *source, bool logging) {
     return result;
 }
 
-static GLuint program(const char *fragment, bool logging) {
-    GLuint vertex = shader(GL_VERTEX_SHADER, vertexShader, logging), pixel = shader(GL_FRAGMENT_SHADER, fragment, logging);
-    if (!vertex || !pixel) { glDeleteShader(vertex); glDeleteShader(pixel); return 0; }
+static GLuint link_program(GLuint stage, GLuint vertex, bool logging) {
     GLuint result = glCreateProgram();
-    glAttachShader(result, vertex);
-    glAttachShader(result, pixel);
+    if (vertex) glAttachShader(result, vertex);
+    glAttachShader(result, stage);
     glLinkProgram(result);
     glDeleteShader(vertex);
-    glDeleteShader(pixel);
+    glDeleteShader(stage);
     GLint valid = 0;
     glGetProgramiv(result, GL_LINK_STATUS, &valid);
     if (!valid) {
@@ -38,6 +38,23 @@ static GLuint program(const char *fragment, bool logging) {
         glDeleteProgram(result); return 0;
     }
     return result;
+}
+
+static GLuint program(const char *fragment, bool logging) {
+    GLuint vertex = shader(GL_VERTEX_SHADER, vertexShader, logging);
+    if (!vertex) return 0;
+    GLuint pixel = shader(GL_FRAGMENT_SHADER, fragment, logging);
+    if (!pixel) { glDeleteShader(vertex); return 0; }
+    return link_program(pixel, vertex, logging);
+}
+
+static bool extension(const char *name) {
+    GLint count = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &count);
+    for (GLint i = 0; i < count; ++i) {
+        if (!strcmp((const char *)glGetStringi(GL_EXTENSIONS, i), name)) return true;
+    }
+    return false;
 }
 
 static bool texture(GLuint *image, GLuint *framebuffer, unsigned width, unsigned height) {
@@ -54,9 +71,9 @@ static bool texture(GLuint *image, GLuint *framebuffer, unsigned width, unsigned
     return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
 }
 
-static void locations(GLuint program, GLint result[9]) {
+static void locations(GLuint program, GLint result[10]) {
     static const char *const names[] = {"previousFrame", "currentFrame", "flowFrame",
-        "mbExtent", "mbFlowScale", "mbStrength", "mbDebug", "guideFrame", "currentHistoryFrame"};
+        "mbExtent", "mbFlowScale", "mbStrength", "mbDebug", "guideFrame", "currentHistoryFrame", "mbRadiusScale"};
     for (size_t i = 0; i < ARRAY_SIZE(names); ++i) result[i] = glGetUniformLocation(program, names[i]);
 }
 
@@ -66,9 +83,13 @@ void mb_renderer_reset(MbRenderer *renderer) {
 }
 
 void mb_renderer_destroy(MbRenderer *r) {
-    if (r->motion_query) glDeleteQueries(1, &r->motion_query);
-    r->motion_query = 0;
+    glDeleteQueries(2, r->motion_query);
+    r->motion_query[0] = r->motion_query[1] = 0;
+    r->motion_pending[0] = r->motion_pending[1] = false;
+    r->next_motion_query = 0;
     r->repaint_needed = false;
+    glDeleteFramebuffers(1, &r->single_target);
+    r->single_target = 0;
     glDeleteTextures(2, r->frames);
     glDeleteFramebuffers(2, r->framebuffers);
     glDeleteTextures(1, &r->guide);
@@ -79,6 +100,10 @@ void mb_renderer_destroy(MbRenderer *r) {
     glDeleteFramebuffers(1, &r->flow_framebuffer);
     glDeleteTextures(1, &r->original);
     glDeleteFramebuffers(1, &r->original_framebuffer);
+    glDeleteTextures(1, &r->blur);
+    glDeleteFramebuffers(1, &r->blur_framebuffer);
+    if (r->composite_program) glDeleteProgram(r->composite_program);
+    r->blur = r->blur_framebuffer = r->composite_program = 0;
     if (r->motion_program) glDeleteProgram(r->motion_program);
     if (r->resolve_program) glDeleteProgram(r->resolve_program);
     if (r->vao) glDeleteVertexArrays(1, &r->vao);
@@ -89,29 +114,92 @@ void mb_renderer_destroy(MbRenderer *r) {
     r->previous = 0;
 }
 
-bool mb_renderer_initialize(MbRenderer *r, unsigned w, unsigned h, unsigned history_scale, bool logging) {
+bool mb_renderer_initialize(MbRenderer *r, unsigned w, unsigned h, const MbConfig *config, bool multisampled) {
     mb_renderer_destroy(r);
-    r->history_width = mb_div_ceil(w, history_scale);
-    r->history_height = mb_div_ceil(h, history_scale);
-    r->guide_program = program(guideShader, logging);
+    r->width = w;
+    r->height = h;
+    r->scale = config->history_scale;
+    r->test = config->test;
+    r->multisampled = multisampled;
+    r->memory_limit = config->memory_limit_mb;
+    r->failed = false;
+    r->parallel_guide = false;
+    r->composite_path = r->scale == 1 ? "direct" : "copy";
+    r->history_width = mb_div_ceil(w, r->scale);
+    r->history_height = mb_div_ceil(h, r->scale);
+    unsigned hw = r->history_width, hh = r->history_height;
+    unsigned fw = mb_div_ceil(hw, 16), fh = mb_div_ceil(hh, 16);
+    bool logging = config->log;
+
+    if (r->test == MB_TEST_PARALLEL || r->test == MB_TEST_BALANCED) {
+        GLint major = 0, minor = 0;
+        glGetIntegerv(GL_MAJOR_VERSION, &major);
+        glGetIntegerv(GL_MINOR_VERSION, &minor);
+        if (major > 3 || (major == 3 && minor >= 1)) {
+            const char *source = r->scale == 3 ? filteredGuideComputeShader : guideComputeShader;
+            GLuint compute = shader(GL_COMPUTE_SHADER, source, logging);
+            if (compute) r->guide_program = link_program(compute, 0, logging);
+            r->parallel_guide = r->guide_program != 0;
+        }
+    }
+    if (!r->guide_program) r->guide_program = program(guideShader, logging);
     r->motion_program = program(motionShader, logging);
-    r->resolve_program = program(resolveShader, logging);
+    r->resolve_program = program(r->scale > 1 ? blurShader : resolveShader, logging);
     if (!r->guide_program || !r->motion_program || !r->resolve_program) return false;
     locations(r->guide_program, r->guide_uniforms);
     locations(r->motion_program, r->motion_uniforms);
     locations(r->resolve_program, r->resolve_uniforms);
+
+    bool copy = false;
+    if (r->scale > 1) {
+        if (!multisampled && (r->test == MB_TEST_FETCH || r->test == MB_TEST_BALANCED)) {
+            if (extension("GL_EXT_shader_framebuffer_fetch")) {
+                r->composite_program = program(compositeExtShader, logging);
+                if (r->composite_program) r->composite_path = "fetch-ext";
+            }
+            if (!r->composite_program && extension("GL_ARM_shader_framebuffer_fetch")) {
+                r->composite_program = program(compositeArmShader, logging);
+                if (r->composite_program) {
+                    r->composite_path = "fetch-arm";
+                    GLboolean mrt = GL_FALSE;
+                    glGetBooleanv(GL_FRAGMENT_SHADER_FRAMEBUFFER_FETCH_MRT_ARM, &mrt);
+                    if (!mrt) {
+                        glGenFramebuffers(1, &r->single_target);
+                        if (!r->single_target) {
+                            glDeleteProgram(r->composite_program);
+                            r->composite_program = 0;
+                            r->composite_path = "copy";
+                        }
+                    }
+                }
+            }
+        }
+        copy = !r->composite_program;
+        if (copy) r->composite_program = program(compositeShader, logging);
+        if (!r->composite_program) return false;
+        locations(r->composite_program, r->composite_uniforms);
+    }
+    uint64_t pixels = (uint64_t)hw * hh;
+    r->memory_bytes = 4 + pixels * 8 + (uint64_t)fw * fh * 4;
+    if (r->scale > 1) r->memory_bytes += pixels * 4;
+    if (copy) r->memory_bytes += (uint64_t)w * h * 4;
+    if (r->memory_bytes > (uint64_t)r->memory_limit * 1024 * 1024) {
+        MB_LOG(logging, ANDROID_LOG_WARN, "Memory limit: need %llu bytes, limit %u MiB",
+               (unsigned long long)r->memory_bytes, r->memory_limit);
+        return false;
+    }
     glGenVertexArrays(1, &r->vao);
-    glGenQueries(1, &r->motion_query);
-    // Downscaled history needs a full-resolution raw copy for sharp output.
+    glGenQueries(2, r->motion_query);
     if (!texture(&r->guide, &r->guide_framebuffer, 1, 1) ||
-        !texture(&r->frames[0], &r->framebuffers[0], r->history_width, r->history_height) ||
-        !texture(&r->frames[1], &r->framebuffers[1], r->history_width, r->history_height) ||
-        !texture(&r->flow, &r->flow_framebuffer, mb_div_ceil(r->history_width, 16), mb_div_ceil(r->history_height, 16)) ||
-        (history_scale > 1 && !texture(&r->original, &r->original_framebuffer, w, h))) return false;
-    r->width = w;
-    r->height = h;
-    r->scale = history_scale;
+        !texture(&r->frames[0], &r->framebuffers[0], hw, hh) ||
+        !texture(&r->frames[1], &r->framebuffers[1], hw, hh) ||
+        !texture(&r->flow, &r->flow_framebuffer, fw, fh) ||
+        (r->scale > 1 && !texture(&r->blur, &r->blur_framebuffer, hw, hh)) ||
+        (copy && !texture(&r->original, &r->original_framebuffer, w, h))) return false;
     r->current = 0;
     r->ready = true;
+    MB_LOG(logging, ANDROID_LOG_INFO, "Renderer test=%s guide=%s composite=%s history=%ux%u memory_bytes=%llu",
+           mb_test_name(r->test), mb_renderer_guide_name(r), r->composite_path,
+           hw, hh, (unsigned long long)r->memory_bytes);
     return true;
 }

@@ -35,14 +35,14 @@ static void *original(const char *name) {
 
 ORIGINAL(PFNEGLGETNATIVECLIENTBUFFERANDROIDPROC, eglGetNativeClientBufferANDROID)
 ORIGINAL(PFNEGLCREATEIMAGEKHRPROC, eglCreateImageKHR)
-ORIGINAL(PFNEGLCREATEIMAGEPROC, eglCreateImage)
+ORIGINAL(__typeof__(&eglCreateImage), eglCreateImage)
 ORIGINAL(PFNEGLDESTROYIMAGEKHRPROC, eglDestroyImageKHR)
-ORIGINAL(PFNEGLDESTROYIMAGEPROC, eglDestroyImage)
+ORIGINAL(__typeof__(&eglDestroyImage), eglDestroyImage)
 ORIGINAL(PFNGLEGLIMAGETARGETTEXTURE2DOESPROC, glEGLImageTargetTexture2DOES)
 ORIGINAL(PFNGLDELETETEXTURESPROC, glDeleteTextures)
 ORIGINAL(PFNEGLCREATESYNCKHRPROC, eglCreateSyncKHR)
-ORIGINAL(PFNEGLCREATESYNCPROC, eglCreateSync)
-ORIGINAL(PFNEGLDESTROYCONTEXTPROC, eglDestroyContext)
+ORIGINAL(__typeof__(&eglCreateSync), eglCreateSync)
+ORIGINAL(__typeof__(&eglDestroyContext), eglDestroyContext)
 
 static bool protected_image(const void *attributes, bool wide) {
     if (!attributes) return false;

@@ -18,7 +18,16 @@ TARGETS = {
 
 
 def shaders():
-    common = (ROOT / "src/runtime/motion.glsl").read_text()
+    runtime = ROOT / "src/runtime"
+    sampling = (runtime / "sampling.glsl").read_text()
+    common = sampling + (runtime / "motion.glsl").read_text()
+    compute = """#version 310 es
+precision highp float;
+precision highp int;
+uniform sampler2D previousFrame;
+uniform sampler2D currentFrame;
+uniform vec2 mbExtent;
+""" + sampling + (runtime / "guide_compute.glsl").read_text()
     vertex = """#version 300 es
 precision highp float;
 out vec2 uv;
@@ -42,11 +51,47 @@ uniform vec2 mbExtent;
 uniform vec2 mbFlowScale;
 uniform float mbStrength;
 uniform float mbDebug;
+uniform float mbRadiusScale;
 """
-    sources = {"vertexShader": vertex,
+    sources = {"vertexShader": vertex, "guideComputeShader": compute,
                "guideShader": prefix + common + "\nvoid main() { color = mbGuide(); }\n",
                "motionShader": prefix + common + "\nvoid main() { color = mbMotion(uv); }\n",
-               "resolveShader": prefix + common + "\nvoid main() { color = mbResolve(uv); if (mbDebug < 0.5 && !mbBlurred) discard; }\n"}
+               "resolveShader": prefix + common + "\nvoid main() { color = mbResolve(uv); if (mbDebug < 0.5 && !mbBlurred) discard; }\n",
+               "blurShader": prefix + common + """
+void main() {
+    vec4 raw = texelFetch(currentFrame, ivec2(gl_FragCoord.xy), 0);
+    vec4 blurred = mbResolve(uv);
+    // Encode a signed correction with an exact zero in RGBA8.
+    color = mbDebug > 0.5 ? blurred :
+        vec4(((blurred.rgb - raw.rgb) * 127.0 + 128.0) / 255.0, mbBlurred ? 1.0 : 0.0);
+}
+""",
+    }
+    sources["filteredGuideComputeShader"] = compute.replace(
+        "#version 310 es", "#version 310 es\n#define MB_FILTER_GUIDE", 1)
+    composite = """
+void main() {
+    vec4 correction = textureLod(flowFrame, uv, 0.0);
+    if (mbDebug < 0.5 && correction.a <= 0.0) discard;
+    vec4 raw = MB_DESTINATION;
+    if (mbDebug > 0.5) {
+        color = vec4(correction.rgb, raw.a);
+        return;
+    }
+    vec3 delta = (correction.rgb * 255.0 - 128.0) / 127.0;
+    color = vec4(clamp(raw.rgb + delta, 0.0, 1.0), raw.a);
+}
+"""
+    sources["compositeShader"] = prefix + composite.replace(
+        "MB_DESTINATION", "texelFetch(currentFrame, ivec2(gl_FragCoord.xy), 0)")
+    for suffix, extension, destination in (
+        ("Ext", "GL_EXT_shader_framebuffer_fetch", "color"),
+        ("Arm", "GL_ARM_shader_framebuffer_fetch", "gl_LastFragColorARM"),
+    ):
+        header = prefix.replace("#version 300 es", f"#version 300 es\n#extension {extension} : require")
+        if suffix == "Ext":
+            header = header.replace("out vec4 color;", "layout(location = 0) inout highp vec4 color;")
+        sources[f"composite{suffix}Shader"] = header + composite.replace("MB_DESTINATION", destination)
     output = ROOT / "build/runtime/generated"
     output.mkdir(parents=True, exist_ok=True)
     # JSON escaping preserves GLSL newlines and quotes in the C string literals.
@@ -100,8 +145,12 @@ def build(ndk, abis):
     manifest = {str(path.relative_to(stage)): hashlib.sha256(path.read_bytes()).hexdigest()
                 for path in sorted((stage / "bin").rglob("*")) if path.is_file()}
     (stage / "binaries.sha256.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    for document in ["README.md", "VALIDATION.md"]:
-        shutil.copy(ROOT / document, stage / document)
+    for document in ["README.md", "VALIDATION.md", "docs/performance_report.md", "docs/renderer-benchmark.csv"]:
+        source = ROOT / document
+        if source.is_file():
+            destination = stage / document
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(source, destination)
     shutil.copy(ROOT / "LICENSE", stage / "LICENSE")
     metadata = dict(line.split("=", 1) for line in (ROOT / "module/module.prop").read_text().splitlines() if "=" in line)
     archive = ROOT / "release" / f"skia-motion-blur-{metadata['version']}.zip"

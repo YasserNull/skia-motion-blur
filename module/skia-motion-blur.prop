@@ -1,10 +1,12 @@
 enabled=1
+# test = reference | parallel | fetch | balanced
+test=balanced
 strength=8.0
 exposure_ms=16.667
-temp_settings=0
+temp_settings=1
 log=0
 debug=0
 allow_packages=*
-history_scale=1
+history_scale=4
 history_timeout_ms=150
 memory_limit_mb=48

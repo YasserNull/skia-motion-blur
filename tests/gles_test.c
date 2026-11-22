@@ -7,7 +7,8 @@
 
 static unsigned width = 128, height = 128, scale = 2;
 static bool benchmark;
-static GLuint sampler, texture, target;
+static double elapsed_ms;
+static GLuint sampler, texture, target, caller_image;
 static MbRenderer renderer;
 static MbConfig *config;
 
@@ -128,7 +129,7 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     render_time_ms += frame_interval_ms;
     renderer_clock = true;
 #endif
-    bool applied = mb_renderer_apply(&renderer, target, width, height, config, session);
+    bool applied = mb_renderer_apply(&renderer, target, texture, width, height, config, session);
 #ifdef MB_TEST_CLOCK
     renderer_clock = false;
 #endif
@@ -136,10 +137,18 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     if (benchmark) {
         glFinish();
         clock_gettime(CLOCK_MONOTONIC, &finish);
-        double elapsed = (finish.tv_sec - start.tv_sec) * 1000.0 + (finish.tv_nsec - start.tv_nsec) / 1000000.0;
-        printf("BENCH: %.3f ms; %ux%u; history_scale=%u; strength=%.1f; session=%llu\n",
-               elapsed, width, height, scale, config->strength, (unsigned long long)session);
-        fflush(stdout);
+        elapsed_ms = (finish.tv_sec - start.tv_sec) * 1000.0 + (finish.tv_nsec - start.tv_nsec) / 1000000.0;
+    }
+    if (caller_image) {
+        GLint name, level, layer, layered, access, format;
+        glGetIntegeri_v(GL_IMAGE_BINDING_NAME, 0, &name);
+        glGetIntegeri_v(GL_IMAGE_BINDING_LEVEL, 0, &level);
+        glGetIntegeri_v(GL_IMAGE_BINDING_LAYER, 0, &layer);
+        glGetIntegeri_v(GL_IMAGE_BINDING_LAYERED, 0, &layered);
+        glGetIntegeri_v(GL_IMAGE_BINDING_ACCESS, 0, &access);
+        glGetIntegeri_v(GL_IMAGE_BINDING_FORMAT, 0, &format);
+        require(name == (GLint)caller_image && level == 1 && layer == 2 && !layered &&
+                access == GL_READ_ONLY && format == GL_RGBA8, "Caller image binding restored");
     }
     GLint viewport[4] = {0};
     glGetIntegerv(GL_VIEWPORT, viewport);
@@ -156,12 +165,6 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     unsigned char *output = allocate_frame();
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, output);
     require(glGetError() == GL_NO_ERROR, "No GL errors");
-    if (benchmark) {
-        // Compare outputs outside the timed region.
-        uint64_t hash = 14695981039346656037ull;
-        for (size_t i = 0; i < frame_size(); ++i) { hash ^= output[i]; hash *= 1099511628211ull; }
-        printf("OUTPUT: %016llx\n", (unsigned long long)hash);
-    }
     return output;
 }
 
@@ -176,17 +179,98 @@ static void expect_equal(unsigned char *output, const unsigned char *expected, c
     free(output);
 }
 
+static void expect_cleanup(const unsigned char *frame, uint64_t session, const char *message) {
+    for (unsigned i = 0; renderer.repaint_needed && i < 4; ++i)
+        expect_equal(submit(frame, session), frame, "Cleanup preserves unchanged output");
+    require(!renderer.repaint_needed, message);
+}
+
+static void set_mode(const char *name) {
+    char line[64];
+    MbConfig parsed;
+    mb_config_init(&parsed);
+    int n = snprintf(line, sizeof(line), "test=%s", name);
+    require(n > 0 && (size_t)n < sizeof(line) && mb_parse_config(line, (size_t)n, &parsed), "Known test mode");
+    config->test = parsed.test;
+    mb_config_destroy(&parsed);
+}
+
+static int compare_times(const void *left, const void *right) {
+    double a = *(const double *)left, b = *(const double *)right;
+    return (a > b) - (a < b);
+}
+
+static void run_benchmark(void) {
+    enum { warmup = 6, samples = 32 };
+    double times[samples];
+    config->strength = 8;
+    config->exposure_ms = 16.667f;
+    free(submit_generated(terminal(0), 20));
+    for (int i = 0; i < warmup + samples; ++i) {
+        unsigned char *input = terminal((i + 1) * 20);
+        unsigned char *output = submit(input, 20);
+        size_t bytes = (size_t)width * (height * 2 / 5 - 8) * 4;
+        require(!memcmp(input, output, bytes), "Benchmark stationary keyboard");
+        require(memcmp(input, output, frame_size()) != 0, "Benchmark moving text receives blur");
+        if (i >= warmup) {
+            times[i - warmup] = elapsed_ms;
+            printf("FRAME %d %.3f ms\n", i - warmup + 1, elapsed_ms);
+        }
+        free(output);
+        free(input);
+    }
+    qsort(times, samples, sizeof(times[0]), compare_times);
+    printf("BENCH test=%s guide=%s composite=%s size=%ux%u scale=%u strength=8 samples=%d median_ms=%.3f p95_ms=%.3f texture_bytes=%llu\n",
+           mb_test_name(config->test), mb_renderer_guide_name(&renderer), renderer.composite_path,
+           width, height, scale, samples, (times[15] + times[16]) / 2.0, times[30],
+           (unsigned long long)renderer.memory_bytes);
+}
+
+#ifdef MB_TEST_CLOCK
+static void compare_mode_output(void) {
+    MbTestMode selected = config->test;
+    const MbTestMode modes[] = {MB_TEST_REFERENCE, MB_TEST_PARALLEL, MB_TEST_FETCH, MB_TEST_BALANCED};
+    unsigned char *first = pixels(0), *moved = pixels(8);
+    unsigned char *reference[2] = {NULL, NULL};
+    for (size_t i = 3; i < frame_size(); i += 4) moved[i] = (unsigned char)(i * 31);
+    for (size_t m = 0; m < sizeof(modes) / sizeof(modes[0]); ++m) {
+        config->test = modes[m];
+        expect_equal(submit(first, 90 + m), first, "Mode switch starts with raw history");
+        unsigned char *output = submit(moved, 90 + m);
+        require(memcmp(output, moved, frame_size()) != 0, "Compared mode renders blur");
+        // Compare each composite against the copy made with the same motion estimator.
+        size_t group = scale == 3 && renderer.parallel_guide ? 1 : 0;
+        for (size_t i = 0; i < frame_size(); ++i) {
+            if (i % 4 == 3) require(output[i] == moved[i], "Mode comparison preserves alpha");
+            else if (reference[group])
+                require(abs((int)output[i] - reference[group][i]) <= 1, "Motion matches within one RGB level");
+        }
+        if (reference[group]) free(output);
+        else reference[group] = output;
+        expect_equal(submit(moved, 90 + m), moved, "First still frame is sharp in every mode");
+    }
+    config->test = selected;
+    free(first);
+    free(moved);
+    free(reference[0]);
+    free(reference[1]);
+}
+#endif
+
 int main(int argc, char **argv) {
     config = mb_config_create();
     require(config != NULL, "Configuration allocation");
-    benchmark = argc == 5 && !strcmp(argv[1], "--benchmark");
-    if (benchmark) {
+    if (argc != 1) {
+        require((argc == 5 || argc == 6) && (!strcmp(argv[1], "--benchmark") || !strcmp(argv[1], "--check")),
+                "Usage: gles_test [--check|--benchmark width height history_scale [test]]");
+        benchmark = !strcmp(argv[1], "--benchmark");
         width = (unsigned)strtoul(argv[2], NULL, 10);
         height = (unsigned)strtoul(argv[3], NULL, 10);
         scale = (unsigned)strtoul(argv[4], NULL, 10);
         require(width >= 64 && height >= 64 && width <= 4096 && height <= 4096 && scale >= 1 && scale <= 4,
-                "Benchmark dimensions and history scale");
-    } else require(argc == 1, "Usage: gles_test [--benchmark width height history_scale]");
+                "Dimensions and history scale");
+        if (argc == 6) set_mode(argv[5]);
+    }
     for (int version = 1; version < 50; ++version)
         require(mb_supported(version) == (version >= 31 && version <= 36), "SDK bounds");
     require(!strcmp(mb_strategy(33), "egl-khr"), "Android 13 strategy");
@@ -204,6 +288,14 @@ int main(int argc, char **argv) {
     EGLSurface surface = eglCreatePbufferSurface(display, selected, surface_attributes);
     require(eglMakeCurrent(display, surface, surface, context), "ES3 context");
     printf("GPU: %s\n", glGetString(GL_RENDERER));
+    GLint minor = 0;
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
+    if (!benchmark && minor >= 1) {
+        glGenTextures(1, &caller_image);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, caller_image);
+        glTexStorage3D(GL_TEXTURE_2D_ARRAY, 2, GL_RGBA8, 4, 4, 3);
+        glBindImageTexture(0, caller_image, 1, GL_FALSE, 2, GL_READ_ONLY, GL_RGBA8);
+    }
     glGenSamplers(1, &sampler);
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -216,11 +308,18 @@ int main(int argc, char **argv) {
     config->strength = 1;
     config->history_timeout_ms = benchmark ? 10000 : 250;
     config->history_scale = scale;
+    if (benchmark) {
+        run_benchmark();
+        goto finish;
+    }
+#ifdef MB_TEST_CLOCK
+    compare_mode_output();
+#endif
     unsigned char *frame = pixels(0);
     expect_equal(submit(frame, 1), frame, "First frame preserved");
     require(!renderer.repaint_needed, "First frame does not schedule cleanup");
     expect_equal(submit(frame, 1), frame, "Static frame preserved");
-    require(!renderer.repaint_needed, "Static frame does not schedule cleanup");
+    expect_cleanup(frame, 1, "Static frame stops cleanup requests");
     unsigned char *shifted = pixels(8);
     unsigned char *blurred = submit(shifted, 1);
     size_t changed = 0;
@@ -228,7 +327,7 @@ int main(int argc, char **argv) {
     require(changed > width * height / 8, "Motion changes output pixels");
     require(renderer.repaint_needed, "Blurred output requests a cleanup frame");
     expect_equal(submit(shifted, 1), shifted, "First unchanged frame immediately clears blur");
-    require(!renderer.repaint_needed, "Clean frame stops cleanup requests");
+    expect_cleanup(shifted, 1, "Clean frame stops cleanup requests");
     config->strength = 3;
     expect_equal(submit(frame, 7), frame, "Default strength preserves first frame");
     unsigned char *default_blur = submit(shifted, 7);
@@ -236,7 +335,7 @@ int main(int argc, char **argv) {
             "Strength three increases moving-image blur");
     require(renderer.repaint_needed, "Default strength requests cleanup");
     expect_equal(submit(shifted, 7), shifted, "Default strength clears on first still frame");
-    require(!renderer.repaint_needed, "Default strength stops cleanup at rest");
+    expect_cleanup(shifted, 7, "Default strength stops cleanup at rest");
     unsigned char *fast = pixels(24);
     free(submit(frame, 8));
     unsigned char *fast_default = submit(fast, 8);
@@ -247,7 +346,7 @@ int main(int argc, char **argv) {
             "Strength eight increases blur beyond strength three");
     require(renderer.repaint_needed, "Maximum strength requests cleanup");
     expect_equal(submit(fast, 9), fast, "Maximum strength clears on first still frame");
-    require(!renderer.repaint_needed, "Maximum strength stops cleanup at rest");
+    expect_cleanup(fast, 9, "Maximum strength stops cleanup at rest");
     config->strength = 1;
     expect_equal(submit(shifted, 2), shifted, "Foreground session clears history");
     config->strength = 0;
@@ -270,6 +369,30 @@ int main(int argc, char **argv) {
     require(active_query == caller_query, "Caller query remains active");
     glEndQuery(GL_ANY_SAMPLES_PASSED);
     glDeleteQueries(1, &foreign_query);
+    for (unsigned divisor = 1; divisor <= 4; ++divisor) {
+        config->history_scale = divisor;
+        ++config->generation;
+        unsigned char *alpha_frame = pixels(0), *alpha_motion = pixels(8);
+        for (size_t i = 3; i < frame_size(); i += 4) {
+            alpha_frame[i] = (unsigned char)(i * 17);
+            alpha_motion[i] = (unsigned char)(i * 31);
+        }
+        expect_equal(submit(alpha_frame, 15), alpha_frame, "Scaled first frame preserves RGBA");
+        unsigned char *alpha_blur = submit(alpha_motion, 15);
+        size_t rgb_changes = 0;
+        for (size_t i = 0; i < frame_size(); i += 4) {
+            require(alpha_blur[i + 3] == alpha_motion[i + 3], "Blur preserves source alpha at every scale");
+            if (memcmp(alpha_blur + i, alpha_motion + i, 3)) ++rgb_changes;
+        }
+        require(rgb_changes > 0, "Every history scale produces visible motion blur");
+        expect_equal(submit(alpha_motion, 15), alpha_motion, "Scaled stationary output is exact");
+        expect_cleanup(alpha_motion, 15, "Scaled stationary output stops cleanup");
+        free(alpha_blur);
+        free(alpha_motion);
+        free(alpha_frame);
+    }
+    config->history_scale = scale;
+    ++config->generation;
     if (width >= 256 && height >= 256) {
         config->debug = true;
         ++config->generation;
@@ -311,7 +434,7 @@ int main(int argc, char **argv) {
         require(changed_keys > width * (height * 2 / 5) / 100, "Moving keyboard glyphs receive blur");
         require(renderer.repaint_needed, "Keyboard blur requests cleanup");
         expect_equal(submit(pressed, 6), pressed, "First still keyboard frame is exact");
-        require(!renderer.repaint_needed, "Still keyboard stops cleanup requests");
+        expect_cleanup(pressed, 6, "Still keyboard stops cleanup requests");
         free(blurred_keys);
         free(source);
         free(pressed);
@@ -369,10 +492,6 @@ int main(int argc, char **argv) {
     frame_interval_ms = 16;
     ++config->generation;
 #endif
-    if (benchmark) {
-        free(submit(frame, 3));
-        for (int i = 1; i <= 32; ++i) free(submit_generated(pixels(i * 8), 3));
-    }
     free(strongest);
     free(fast_default);
     free(fast);
@@ -380,14 +499,18 @@ int main(int argc, char **argv) {
     free(blurred);
     free(shifted);
     free(frame);
+    printf("PASS test=%s guide=%s composite=%s moving_pixels=%zu\n", mb_test_name(config->test),
+           mb_renderer_guide_name(&renderer), renderer.composite_path, changed);
+finish:
     mb_renderer_destroy(&renderer);
     mb_config_free(config);
     glDeleteSamplers(1, &sampler);
+    glDeleteTextures(1, &caller_image);
     glDeleteTextures(1, &texture);
     glDeleteFramebuffers(1, &target);
     eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroySurface(display, surface);
     eglDestroyContext(display, context);
     eglTerminate(display);
-    printf("PASS: version routing, static frame, motion (%zu pixels), state, session, strength, history scale\n", changed);
+
 }

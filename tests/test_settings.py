@@ -12,35 +12,36 @@ class SettingsTests(unittest.TestCase):
     def service(self, current=None):
         with tempfile.TemporaryDirectory() as temporary:
             tree = Path(temporary)
-            module, storage, data = tree / "module", tree / "storage", tree / "data"
+            module, data = tree / "module", tree / "data"
             module.mkdir()
-            # Stop supervision after settings initialization so the harness terminates.
-            (module / "disable").touch()
             defaults = (ROOT / "module/skia-motion-blur.prop").read_bytes()
-            (module / "skia-motion-blur.prop").write_bytes(defaults)
-            (storage / "Android").mkdir(parents=True)
+            settings = module / "skia-motion-blur.prop"
+            settings.write_bytes(defaults if current is None else current)
             (data / "runtime").mkdir(parents=True)
             prepared = data / "runtime/surfaceflinger"
             prepared.touch()
             prepared.chmod(0o755)
-            if current is not None: (storage / "skia-motion-blur.prop").write_bytes(current)
+            controller = module / "controller"
+            controller.write_text('#!/bin/sh\ncat "$1/skia-motion-blur.prop" > "$1/observed"\ntouch "$1/disable"\n')
+            controller.chmod(0o755)
             source = (ROOT / "module/service.sh").read_text().replace("/data/misc/skia-motion-blur", str(data))
-            source = source.replace("/sdcard/", str(storage) + "/")
             script = module / "service.sh"
             script.write_text(source)
-            harness = 'getprop() { echo 1; }; cmp() { return 0; }; . "$1"'
+            harness = 'getprop() { echo 1; }; cmp() { return 0; }; sleep() { :; }; . "$1"'
             result = subprocess.run(["sh", "-c", harness, str(script), str(script)],
                                     capture_output=True, text=True, timeout=5)
             self.assertEqual(result.returncode, 0, result.stderr)
-            return (storage / "skia-motion-blur.prop").read_bytes(), defaults
+            self.assertEqual((module / "observed").read_bytes(), settings.read_bytes())
+            return settings.read_bytes(), defaults
 
     def test_preserves_existing_settings(self):
         content, _ = self.service(current=b"enabled=0\nstrength=1\n")
         self.assertEqual(content, b"enabled=0\nstrength=1\n")
 
-    def test_creates_defaults_when_no_settings_exist(self):
+    def test_controller_receives_packaged_defaults(self):
         content, defaults = self.service()
         self.assertEqual(content, defaults)
+        self.assertIn(b"test=balanced\n", content)
 
     def test_uninstall_preserves_prepared_executables(self):
         with tempfile.TemporaryDirectory() as temporary:
