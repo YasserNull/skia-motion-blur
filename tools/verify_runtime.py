@@ -73,7 +73,7 @@ def main():
             if path.suffix == ".sh" or path.name == "update-binary":
                 subprocess.run(["sh", "-n", str(path)], check=True)
             assert archive.read(path.relative_to(ROOT / "module").as_posix()) == path.read_bytes()
-        for document in ("README.md", "docs/performance_report.md", "docs/renderer-benchmark.csv"):
+        for document in ("README.md",):
             assert archive.read(document) == (ROOT / document).read_bytes()
     print("PASS: ZIP integrity, identity, 12 ELF binaries, ABI, 16KB alignment, SHA-256, shell syntax, packaged sources")
 

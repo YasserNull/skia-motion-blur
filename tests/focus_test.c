@@ -21,6 +21,8 @@ int main(void) {
     check("mCurrentFocus=null\n", "");
     check("mFocusedApp=ActivityRecord{123 u0 com.android.settings/.Settings}\n", "");
     check("mCurrentFocus=Window{a u0 com.example.game/.Game}\n", "com.example.game");
+    check("mCurrentFocus=Window{a u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity}\n",
+          "com.google.android.apps.nexuslauncher");
     snprintf(text, sizeof(text), "%smCurrentFocus=Window{a u0 com.example.game/.Game}\n", settings);
     check(text, "");
     snprintf(text, sizeof(text), "%s%s", settings, settings);

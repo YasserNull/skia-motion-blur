@@ -41,6 +41,8 @@ int main(int argc, char **argv) {
     assert(parse("# defaults\r\n enabled = true\r\nallow_packages=*\n", config));
     assert(config->temp_settings && !config->log && config->exposure_ms > 8.32f && config->exposure_ms < 8.34f);
     assert(config->strength == 3 && mb_config_allows_package(config, "com.example.game"));
+    assert(mb_config_allows_package(config, "com.google.android.apps.nexuslauncher"));
+    assert(mb_config_matches(config, "com.google.android.apps.nexuslauncher/.NexusLauncherActivity#1"));
     assert(!mb_config_allows_package(config, ""));
     assert(parse("enabled=1\nstrength=8\nallow_layer_prefixes=NotificationShade\nexclude_layers=Wallpaper\n", config));
     assert(config->strength == 8 && mb_config_matches(config, "NotificationShade#42"));

@@ -6,8 +6,6 @@
 #include <string.h>
 
 static unsigned width = 128, height = 128, scale = 2;
-static bool benchmark;
-static double elapsed_ms;
 static GLuint sampler, texture, target, caller_image;
 static MbRenderer renderer;
 static MbConfig *config;
@@ -124,9 +122,6 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     else glDisable(GL_DITHER);
     glScissor(1, 1, 10, 10);
     glColorMask(GL_TRUE, GL_FALSE, GL_TRUE, GL_FALSE);
-    if (benchmark) glFinish();
-    struct timespec start, finish;
-    clock_gettime(CLOCK_MONOTONIC, &start);
 #ifdef MB_TEST_CLOCK
     render_time_ms += frame_interval_ms;
     renderer_clock = true;
@@ -136,11 +131,6 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     renderer_clock = false;
 #endif
     require(applied, "Renderer applied");
-    if (benchmark) {
-        glFinish();
-        clock_gettime(CLOCK_MONOTONIC, &finish);
-        elapsed_ms = (finish.tv_sec - start.tv_sec) * 1000.0 + (finish.tv_nsec - start.tv_nsec) / 1000000.0;
-    }
     if (caller_image) {
         GLint name, level, layer, layered, access, format;
         glGetIntegeri_v(GL_IMAGE_BINDING_NAME, 0, &name);
@@ -193,44 +183,12 @@ static void expect_cleanup(const unsigned char *frame, uint64_t session, const c
     require(!renderer.repaint_needed, message);
 }
 
-static int compare_times(const void *left, const void *right) {
-    double a = *(const double *)left, b = *(const double *)right;
-    return (a > b) - (a < b);
-}
-
-static void run_benchmark(void) {
-    enum { warmup = 6, samples = 32 };
-    double times[samples];
-    config->strength = 8;
-    config->exposure_ms = 16.667f;
-    free(submit_generated(terminal(0), 20));
-    for (int i = 0; i < warmup + samples; ++i) {
-        unsigned char *input = terminal((i + 1) * 20);
-        unsigned char *output = submit(input, 20);
-        size_t bytes = (size_t)width * (height * 2 / 5 - 8) * 4;
-        require(!memcmp(input, output, bytes), "Benchmark stationary keyboard");
-        require(memcmp(input, output, frame_size()) != 0, "Benchmark moving text receives blur");
-        if (i >= warmup) {
-            times[i - warmup] = elapsed_ms;
-            printf("FRAME %d %.3f ms\n", i - warmup + 1, elapsed_ms);
-        }
-        free(output);
-        free(input);
-    }
-    qsort(times, samples, sizeof(times[0]), compare_times);
-    printf("BENCH guide=%s composite=%s size=%ux%u scale=%u strength=8 samples=%d median_ms=%.3f p95_ms=%.3f texture_bytes=%llu\n",
-           mb_renderer_guide_name(&renderer), renderer.composite_path,
-           width, height, scale, samples, (times[15] + times[16]) / 2.0, times[30],
-           (unsigned long long)renderer.memory_bytes);
-}
-
 int main(int argc, char **argv) {
     config = mb_config_create();
     require(config != NULL, "Configuration allocation");
     if (argc != 1) {
-        require(argc == 5 && (!strcmp(argv[1], "--benchmark") || !strcmp(argv[1], "--check")),
-                "Usage: gles_test [--check|--benchmark width height history_scale]");
-        benchmark = !strcmp(argv[1], "--benchmark");
+        require(argc == 5 && !strcmp(argv[1], "--check"),
+                "Usage: gles_test [--check width height history_scale]");
         width = (unsigned)strtoul(argv[2], NULL, 10);
         height = (unsigned)strtoul(argv[3], NULL, 10);
         scale = (unsigned)strtoul(argv[4], NULL, 10);
@@ -256,7 +214,7 @@ int main(int argc, char **argv) {
     printf("GPU: %s\n", glGetString(GL_RENDERER));
     GLint minor = 0;
     glGetIntegerv(GL_MINOR_VERSION, &minor);
-    if (!benchmark && minor >= 1) {
+    if (minor >= 1) {
         glGenTextures(1, &caller_image);
         glBindTexture(GL_TEXTURE_2D_ARRAY, caller_image);
         glTexStorage3D(GL_TEXTURE_2D_ARRAY, 2, GL_RGBA8, 4, 4, 3);
@@ -272,12 +230,8 @@ int main(int argc, char **argv) {
     require(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Output framebuffer");
     config->enabled = true;
     config->strength = 1;
-    config->history_timeout_ms = benchmark ? 10000 : 250;
+    config->history_timeout_ms = 250;
     config->history_scale = scale;
-    if (benchmark) {
-        run_benchmark();
-        goto finish;
-    }
     unsigned char *frame = pixels(0);
     expect_equal(submit(frame, 1), frame, "First frame preserved");
     require(!renderer.repaint_needed, "First frame does not schedule cleanup");
@@ -464,7 +418,6 @@ int main(int argc, char **argv) {
     free(frame);
     printf("PASS guide=%s composite=%s moving_pixels=%zu\n",
            mb_renderer_guide_name(&renderer), renderer.composite_path, changed);
-finish:
     mb_renderer_destroy(&renderer);
     mb_config_free(config);
     glDeleteSamplers(1, &sampler);

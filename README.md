@@ -8,7 +8,6 @@
 
 # Skia Motion Blur
 
-Got motion blur on your Android!
 ---
 
 ## ما هي Skia Motion Blur؟
@@ -26,9 +25,7 @@ Got motion blur on your Android!
 ## المميزات
 
 - **ضبابية أثناء الحركة:** قد تظهر أثناء التمرير والانتقالات عندما يستخدم النظام مسار رسم مدعومًا.
-- **التطبيقات والألعاب:** يمكن السماح بتطبيقات محددة، لكن تشغيل لعبة وحده لا يضمن ظهور التأثير؛ تعتمد النتيجة على طريقة رسمها وتركيب صورتها.
 - **التخصيص:** تحديد التطبيقات وتعديل إعدادات التأثير.
-- **خيارات للأداء:** تقليل دقة تقدير الحركة أو تحديد ذاكرة المعالجة.
 
 ## المتطلبات والتوافق
 
@@ -79,9 +76,8 @@ Got motion blur on your Android!
 
 ستجد الملف في المسار التالي حسب نوع الروت لديك:
 
-- **Magisk:** `/data/adb/modules/skia-motion-blur/skia-motion-blur.prop`
+- **Magisk & APatch:** `/data/adb/modules/skia-motion-blur/skia-motion-blur.prop`
 - **KernelSU:** `/data/adb/ksu/modules/skia-motion-blur/skia-motion-blur.prop`
-- **APatch:** `/data/adb/modules/skia-motion-blur/skia-motion-blur.prop`
 
 ### الإعدادات الافتراضية
 
@@ -115,23 +111,9 @@ memory_limit_mb=128
 
 `strength` يحدد مقدار الأثر، و`exposure_ms` يحدد مدة الحركة التي يحاكيها الأثر؛ زيادة أي منهما قد تجعل الضبابية أوضح. القيمة `0` في `strength` توقف الأثر.
 
-### اختيار مسار الرسم والقياس
+### اختيار مسار الرسم
 
 تختار الوحدة مسار الرسم حسب قدرات GLES وامتدادات تعريف الرسوميات. تستخدم البحث الحسابي عند دعمه ونجاح تجميعه، أو البحث بالتظليل عند تعذره. وعند `history_scale=2–4` تحاول قراءة اللون من مخرج الرسم نفسه إذا دعم التعريف ذلك وكان المخرج غير متعدد العينات؛ وإلا تستخدم نسخة منفصلة من الصورة. يعرض ملف حالة GLES المسارين المستخدمين تحت `guide` و`composite`. عند `history_scale=1` يُرسم الأثر بدقة الإخراج مباشرة.
-
-لقياس الأثر على الهاتف، افتح صفحة طويلة في الإعدادات بالوضع العمودي واترك `debug=0`. إذا استخدمت طرفية على الهاتف نفسه، نفّذ الأمر التالي ثم ارجع إلى الإعدادات خلال ثماني ثوانٍ. اضبط مسار الوحدة حسب مدير الروت.
-
-```sh
-su -c 'sleep 8; sh /data/adb/modules/skia-motion-blur/measure-scroll.sh'
-```
-
-إذا كنت تستعمل ADB، نفّذ الأمر من داخل `adb shell`، أو شغّله من الكمبيوتر بهذه الصيغة.
-
-```sh
-adb shell "su -c 'sh /data/adb/modules/skia-motion-blur/measure-scroll.sh'"
-```
-
-ينفّذ السكربت تمريرًا تمهيديًا ثم ست جولات ذهابًا وإيابًا. يعرض `guide` و`composite` اللذين استُخدما فعليًا، وعدد إطارات تطبيق الإعدادات ونسبة المتعثّر منها والمئينين 50 و95. تأتي هذه الأرقام من `gfxinfo` للتطبيق. كرّر القياس بترتيب معكوس، وراقب وضوح الأثر أثناء التمرير وسرعة زواله عند التوقف. يمكن قياس النظام مع `enabled=0` بالطريقة نفسها.
 
 ### مستويات `history_scale`
 
@@ -155,17 +137,15 @@ allow_packages=*
 لتفعيله مع تطبيقات محددة فقط:
 
 ```properties
-allow_packages=com.android.settings,com.android.launcher3
+allow_packages=com.android.settings,com.example.app
 ```
 
 لاستثناء تطبيقات محددة من التأثير مع إبقاء بقية التطبيقات مسموحًا بها:
 
 ```properties
 allow_packages=*
-exclude_packages=com.android.launcher3
+exclude_packages=com.example.app
 ```
-
-يُستثنى Pixel Launcher افتراضيًا لتقليل حمل التركيب أثناء تمرير درج التطبيقات.
 
 ### متى تُطبّق التغييرات؟
 
@@ -179,8 +159,6 @@ exclude_packages=com.android.launcher3
 
 عند 1080×2400 و`history_scale=4` تشغل قوام الوحدة قرابة 11.74 MiB في مسار النسخ و1.86 MiB عند تفعيل الدمج المباشر. يحتسب المسار الفعلي ذاكرته قبل تخصيص القوام. قد يخصص تعريف الرسوميات ذاكرة إضافية.
 عند 1080×2400 و`history_scale=1` تحتاج قوام الوحدة نحو 19.8 MiB لكل سياق رسم. قيمة `128` سقف للتقدير، وليست ذاكرة محجوزة مقدمًا.
-
-[قياسات مسارات الرسم وبيئة الاختبار](docs/performance_report.md)
 
 ## التشخيص وحل المشكلات
 
@@ -196,6 +174,17 @@ log=1
 logcat -s SkiaMotionBlur
 ```
 
+## إيقاف التأثير وإزالة الوحدة
+
+يمكن إيقاف التأثير من الإعدادات:
+
+```properties
+enabled=0
+```
+
+لإزالة الوحدة، احذفها من مدير الروت وأعد تشغيل الجهاز.
+
+
 ## البناء من المصدر
 
 ### المتطلبات
@@ -208,7 +197,7 @@ logcat -s SkiaMotionBlur
 ### بناء الوحدة
 
 ```sh
-python3 tools/build_runtime.py --ndk /path/to/android-ndk
+python3 tools/build_runtime.py --ndk /path/to/ndk/version
 ```
 
 تُنشأ الحزمة في:
@@ -216,8 +205,6 @@ python3 tools/build_runtime.py --ndk /path/to/android-ndk
 ```text
 release/skia-motion-blur-<version>.zip
 ```
-
-يستخدم المشروع C11 وتحسينات `-O2`، ويستهدف API 31 كحد أدنى. تتضمن الحزمة ملف `binaries.sha256.json` لبصمات الملفات الثنائية.
 
 ## الاختبارات
 
@@ -230,16 +217,6 @@ python3 -m unittest discover -s tests
 
 تحتاج اختبارات الرسم الفعلية إلى بيئة أندرويد مناسبة.
 
-## إيقاف التأثير وإزالة الوحدة
-
-يمكن إيقاف التأثير من الإعدادات:
-
-```properties
-enabled=0
-```
-
-لإزالة الوحدة، احذفها من مدير الروت وأعد تشغيل الجهاز.
-
 ## المساهمة في المشروع
 
 المساهمات والإبلاغ عن الأخطاء واختبارات التوافق مرحّب بها:
@@ -251,6 +228,6 @@ enabled=0
 
 المشروع مرخّص بموجب [GPLv3](LICENSE).
 
-## دعم المشروع
+## التبرع
 
-يمكنك دعم التطوير عبر [Ko-fi](https://ko-fi.com/yassernull).
+يمكنك دعم المشروع عبر [Ko-fi](https://ko-fi.com/yassernull).

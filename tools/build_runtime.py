@@ -154,7 +154,7 @@ def build(ndk, abis):
     manifest = {str(path.relative_to(stage)): hashlib.sha256(path.read_bytes()).hexdigest()
                 for path in sorted((stage / "bin").rglob("*")) if path.is_file()}
     (stage / "binaries.sha256.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    for document in ["README.md", "VALIDATION.md", "docs/performance_report.md", "docs/renderer-benchmark.csv"]:
+    for document in ["README.md", "VALIDATION.md"]:
         source = ROOT / document
         if source.is_file():
             destination = stage / document
