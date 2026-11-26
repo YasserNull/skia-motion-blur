@@ -21,6 +21,8 @@ fi
 SDK=$(getprop ro.build.version.sdk)
 [ "$SDK" -ge 31 ] && [ "$SDK" -le 36 ] || abort "Supported range: Android 12–16 / API 31–36"
 if [ "$ROOT_MANAGER" = Magisk ]; then
+    MAGISK_RUNTIME=$(magisk --path 2>/dev/null)
+    [ -n "$MAGISK_RUNTIME" ] && MAGISKTMP=$MAGISK_RUNTIME
     [ -n "${MAGISKTMP:-}" ] && [ -d "$MAGISKTMP/.magisk/preinit" ] ||
         abort "Magisk preinit directory is missing; custom SELinux rules cannot be installed"
 fi

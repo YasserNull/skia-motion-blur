@@ -90,17 +90,47 @@ class InstallerManagerTests(unittest.TestCase):
         harness = r'''
 abort() { printf '%s\n' "$*" >&2; exit 90; }
 getprop() { printf '33\n'; }
+magisk() { printf '%s\n' "$MAGISK_PATH"; }
 . "$1"
 '''
         with tempfile.TemporaryDirectory() as temporary:
             environment = os.environ.copy()
             environment.update(BOOTMODE="true", MAGISK_VER_CODE="26000",
-                               MAGISKTMP=temporary, MODPATH=str(Path(temporary) / "module"))
+                               MAGISKTMP=temporary, MAGISK_PATH=temporary,
+                               MODPATH=str(Path(temporary) / "module"))
             result = subprocess.run(["sh", "-c", harness, "installer-test", str(ROOT / "module/customize.sh")],
                                     env=environment, text=True, capture_output=True, timeout=5)
             self.assertEqual(result.returncode, 90)
             self.assertIn("Magisk preinit directory is missing", result.stderr)
             self.assertFalse((Path(temporary) / "module/stock").exists())
+
+    def test_magisk_resolves_preinit_when_installer_path_is_missing_or_stale(self):
+        harness = r'''
+abort() { printf '%s\n' "$*" >&2; exit 90; }
+getprop() { printf '33\n'; }
+magisk() { printf '%s\n' "$MAGISK_PATH"; }
+. "$1"
+'''
+        with tempfile.TemporaryDirectory() as temporary:
+            tree = Path(temporary)
+            (tree / ".magisk/preinit").mkdir(parents=True)
+            module = tree / "module"
+            module.mkdir()
+            (module / "extract.sh").write_text("mb_extract_surfaceflinger() { return 1; }\n")
+            for installer_path in (None, str(tree / "stale")):
+                with self.subTest(installer_path=installer_path):
+                    environment = os.environ.copy()
+                    environment.pop("MAGISKTMP", None)
+                    if installer_path is not None:
+                        environment["MAGISKTMP"] = installer_path
+                    environment.update(BOOTMODE="true", MAGISK_VER_CODE="26000",
+                                       MAGISK_PATH=str(tree), MODPATH=str(module))
+                    result = subprocess.run(["sh", "-c", harness, "installer-test",
+                                             str(ROOT / "module/customize.sh")],
+                                            env=environment, text=True, capture_output=True, timeout=5)
+                    self.assertEqual(result.returncode, 90)
+                    self.assertIn("Cannot capture the running system SurfaceFlinger", result.stderr)
+                    self.assertNotIn("Magisk preinit directory is missing", result.stderr)
 
 
 class MountedSystemTests(unittest.TestCase):
@@ -183,6 +213,7 @@ class InstalledLayoutTests(unittest.TestCase):
 abort() { printf '%s\n' "$*" >&2; exit 90; }
 ui_print() { :; }
 getprop() { printf '33\n'; }
+magisk() { printf '%s\n' "$MAGISK_PATH"; }
 pidof() { printf '123\n'; }
 set_perm_recursive() { :; }
 set_perm() { chmod "$4" "$1"; }
@@ -190,7 +221,8 @@ set_perm() { chmod "$4" "$1"; }
 """
             environment = os.environ.copy()
             (tree / ".magisk/preinit").mkdir(parents=True)
-            environment.update(MAGISK_VER_CODE="26000", BOOTMODE="true", MODPATH=str(module), MAGISKTMP=str(tree))
+            environment.update(MAGISK_VER_CODE="26000", BOOTMODE="true", MODPATH=str(module),
+                               MAGISKTMP=str(tree), MAGISK_PATH=str(tree))
             result = subprocess.run(["sh", "-c", harness, "installer-test", str(script)],
                                     env=environment, text=True, capture_output=True, timeout=5)
             mounted = {str(path.relative_to(module / "system"))
