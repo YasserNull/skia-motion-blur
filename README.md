@@ -93,9 +93,9 @@ temp_settings=1
 log=0
 debug=0
 allow_packages=*
-history_scale=4
+history_scale=1
 history_timeout_ms=150
-memory_limit_mb=48
+memory_limit_mb=128
 ```
 
 ### شرح الإعدادات
@@ -178,6 +178,7 @@ exclude_packages=com.android.launcher3
 يحدد `memory_limit_mb` الحد التقديري لذاكرة القوام لكل سياق رسم. ويعتمد التقدير على أبعاد الشاشة وقيمة `history_scale`:
 
 عند 1080×2400 و`history_scale=4` تشغل قوام الوحدة قرابة 11.74 MiB في مسار النسخ و1.86 MiB عند تفعيل الدمج المباشر. يحتسب المسار الفعلي ذاكرته قبل تخصيص القوام. قد يخصص تعريف الرسوميات ذاكرة إضافية.
+عند 1080×2400 و`history_scale=1` تحتاج قوام الوحدة نحو 19.8 MiB لكل سياق رسم. قيمة `128` سقف للتقدير، وليست ذاكرة محجوزة مقدمًا.
 
 [قياسات مسارات الرسم وبيئة الاختبار](docs/performance_report.md)
 

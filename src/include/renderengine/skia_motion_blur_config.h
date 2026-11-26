@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 #define MB_CONFIG_MAX_TEXT 16384
-#define MB_CONFIG_DEFAULTS { .temp_settings = true, .strength = 3.0f, .exposure_ms = 8.333f, .max_layers = 3, .history_scale = 2, \
-    .history_timeout_ms = 150, .memory_limit_mb = 48 }
+#define MB_CONFIG_DEFAULTS { .temp_settings = true, .strength = 3.0f, .exposure_ms = 8.333f, .max_layers = 3, .history_scale = 1, \
+    .history_timeout_ms = 150, .memory_limit_mb = 128 }
 
 typedef struct {
     char **items;

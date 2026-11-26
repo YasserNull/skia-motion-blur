@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
     assert(argc == 2);
     MbConfig *config = mb_config_create();
     assert(config);
-    assert(!config->enabled && config->strength == 3 && config->history_scale == 2);
+    assert(!config->enabled && config->strength == 3 && config->history_scale == 1 && config->memory_limit_mb == 128);
     assert(parse("enabled=1\nallow_packages=com.android.settings,com.example.app\nstrength=0.25\n", config));
     assert(mb_config_allows_package(config, "com.android.settings"));
     assert(!mb_config_allows_package(config, "com.android.settings.extra"));
@@ -60,7 +60,8 @@ int main(int argc, char **argv) {
     size_t size = fread(defaults, 1, sizeof(defaults), file);
     fclose(file);
     assert(mb_parse_config(defaults, size, config));
-    assert(config->enabled && config->strength == 8 && config->history_scale == 4 && config->temp_settings);
+    assert(config->enabled && config->strength == 8 && config->history_scale == 1 &&
+           config->memory_limit_mb == 128 && config->temp_settings);
     assert(!mb_is_surface_flinger());
     const MbConfig *first = mb_config_acquire(), *second = mb_config_acquire();
     assert(first && first == second && !first->enabled);
