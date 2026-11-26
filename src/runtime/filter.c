@@ -18,8 +18,7 @@ void mb_filter_output(void) {
         // A live controller lease and cleanup worker are required before blur.
         if (!active || !settings->enabled || settings->strength <= 0 || !mb_repaint_available()) {
             reason = !active ? "no-active-session" : !settings->enabled ? "disabled" : settings->strength <= 0 ? "zero-strength" : "repaint-unavailable";
-            MbRenderer *existing = mb_tracking_renderer(context, false);
-            if (existing) mb_renderer_reset(existing);
+            mb_tracking_reset_context(context);
             break;
         }
         const char *version = (const char *)glGetString(GL_VERSION);
@@ -48,8 +47,13 @@ void mb_filter_output(void) {
         glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                              GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING, &encoding);
         if (encoding != GL_LINEAR || glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { reason = "framebuffer-encoding-or-incomplete"; break; }
-        MbRenderer *current = mb_tracking_renderer(context, true);
-        if (!current || !mb_renderer_apply(current, framebuffer, texture, descriptor.width, descriptor.height, settings, active)) { reason = "renderer-unavailable"; break; }
+        MbRenderer *current = mb_tracking_renderer(context, descriptor.width, descriptor.height, true);
+        if (!current) { reason = "renderer-unavailable"; break; }
+        // Outputs sharing a context also share its texture memory budget.
+        MbConfig effective = *settings;
+        effective.memory_limit_mb = mb_tracking_memory_limit(context, current, settings->memory_limit_mb);
+        if (!mb_renderer_apply(current, framebuffer, texture, descriptor.width, descriptor.height,
+                               &effective, active, mb_touch_until())) { reason = "renderer-unavailable"; break; }
         reason = "eligible-render";
         if (current->repaint_needed) mb_request_repaint(active);
         static uint64_t reported;
@@ -76,8 +80,8 @@ void mb_filter_output(void) {
         static uint64_t last_log;
         uint64_t now = mb_millis();
         if (!last_log || now - last_log >= 5000) {
-            MB_LOG(settings->log, ANDROID_LOG_INFO, "Hook result=%s buffers=%zu images=%zu textures=%zu contexts=%zu generation=%llu",
-                reason, mb_tracking.buffers.count, mb_tracking.images.count, mb_tracking.textures.count, mb_tracking.context_count,
+            MB_LOG(settings->log, ANDROID_LOG_INFO, "Hook result=%s buffers=%zu images=%zu textures=%zu outputs=%zu generation=%llu",
+                reason, mb_tracking.buffers.count, mb_tracking.images.count, mb_tracking.textures.count, mb_tracking.output_count,
                 (unsigned long long)settings->generation);
             last_log = now;
         }

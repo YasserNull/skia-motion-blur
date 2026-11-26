@@ -34,12 +34,13 @@ verified "$MODDIR/stock.sha256" "$DATA/runtime/surfaceflinger" || fail "Prepared
 verified "$MODDIR/payload.sha256" "$DATA/runtime/libskiamotionblur.so" || fail "Prepared payload checksum mismatch; mount skipped"
 rm -f "$DATA/skia-motion-blur.active" "$DATA/skia-motion-blur.owned"
 echo 0 > "$DATA/skia-motion-blur.launches" || fail "Cannot initialize launch counter; mount skipped"
-for FILE in skia-motion-blur.prop skia-motion-blur.launches skia-motion-blur.status skia-motion-blur.gles; do
+for FILE in skia-motion-blur.prop skia-motion-blur.launches skia-motion-blur.status skia-motion-blur.gles skia-motion-blur.touch; do
   touch "$DATA/$FILE" &&
   chown 1000:1003 "$DATA/$FILE" &&
   chmod 0644 "$DATA/$FILE" &&
   chcon u:object_r:skia_motion_blur_data_file:s0 "$DATA/$FILE" || fail "Cannot prepare control files; mount skipped"
 done
+: > "$DATA/skia-motion-blur.touch" || fail "Cannot reset touch activity"
 # A loader failure here disables the module before the compositor is replaced.
 env LD_PRELOAD="$DATA/runtime/libskiamotionblur.so" "$MODDIR/controller" --probe > "$MODDIR/loader-probe.txt" 2>&1 || fail "Payload loader probe failed; mount skipped"
 sync || fail "Cannot persist prepared runtime; mount skipped"

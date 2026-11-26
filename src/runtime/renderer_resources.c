@@ -27,7 +27,7 @@ static GLuint link_program(GLuint stage, GLuint vertex, bool logging) {
     if (vertex) glAttachShader(result, vertex);
     glAttachShader(result, stage);
     glLinkProgram(result);
-    glDeleteShader(vertex);
+    if (vertex) glDeleteShader(vertex);
     glDeleteShader(stage);
     GLint valid = 0;
     glGetProgramiv(result, GL_LINK_STATUS, &valid);
@@ -71,14 +71,15 @@ static bool texture(GLuint *image, GLuint *framebuffer, unsigned width, unsigned
     return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
 }
 
-static void locations(GLuint program, GLint result[10]) {
+static void locations(GLuint program, GLint result[11]) {
     static const char *const names[] = {"previousFrame", "currentFrame", "flowFrame",
-        "mbExtent", "mbFlowScale", "mbStrength", "mbDebug", "guideFrame", "currentHistoryFrame", "mbRadiusScale"};
+        "mbExtent", "mbFlowScale", "mbStrength", "mbDebug", "guideFrame", "currentHistoryFrame", "mbRadiusScale", "mbInteraction"};
     for (size_t i = 0; i < ARRAY_SIZE(names); ++i) result[i] = glGetUniformLocation(program, names[i]);
 }
 
 void mb_renderer_reset(MbRenderer *renderer) {
     renderer->previous = 0;
+    renderer->motion_until = 0;
     renderer->repaint_needed = false;
 }
 
@@ -136,15 +137,16 @@ bool mb_renderer_initialize(MbRenderer *r, unsigned w, unsigned h, const MbConfi
         glGetIntegerv(GL_MAJOR_VERSION, &major);
         glGetIntegerv(GL_MINOR_VERSION, &minor);
         if (major > 3 || (major == 3 && minor >= 1)) {
-            const char *source = r->scale == 3 ? filteredGuideComputeShader : guideComputeShader;
+            const char *source = r->scale == 1 ? fullGuideComputeShader :
+                r->scale == 3 ? filteredGuideComputeShader : guideComputeShader;
             GLuint compute = shader(GL_COMPUTE_SHADER, source, logging);
             if (compute) r->guide_program = link_program(compute, 0, logging);
             r->parallel_guide = r->guide_program != 0;
         }
     }
-    if (!r->guide_program) r->guide_program = program(guideShader, logging);
+    if (!r->guide_program) r->guide_program = program(r->scale == 1 ? fullGuideShader : guideShader, logging);
     r->motion_program = program(motionShader, logging);
-    r->resolve_program = program(r->scale > 1 ? blurShader : resolveShader, logging);
+    r->resolve_program = program(r->scale > 1 ? blurShader : fullResolveShader, logging);
     if (!r->guide_program || !r->motion_program || !r->resolve_program) return false;
     locations(r->guide_program, r->guide_uniforms);
     locations(r->motion_program, r->motion_uniforms);

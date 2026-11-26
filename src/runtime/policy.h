@@ -12,6 +12,7 @@
 #define MB_COUNTER_PATH "/data/misc/skia-motion-blur/skia-motion-blur.launches"
 #define MB_OWNED_PATH "/data/misc/skia-motion-blur/skia-motion-blur.owned"
 #define MB_LEASE_PATH "/data/misc/skia-motion-blur/skia-motion-blur.active"
+#define MB_TOUCH_PATH "/data/misc/skia-motion-blur/skia-motion-blur.touch"
 
 static inline int mb_sdk(void) {
     char value[PROP_VALUE_MAX] = {0};
@@ -38,4 +39,22 @@ static inline uint64_t mb_lease(void) {
     uint64_t now = mb_millis();
     if (count < 2 || deadline <= now || deadline > now + 2000) return 0;
     return session;
+}
+
+static inline uint64_t mb_touch_until(void) {
+    static uint64_t checked, deadline;
+    static bool initialized;
+    uint64_t now = mb_millis();
+    if (!initialized || now - checked >= 16) {
+        initialized = true;
+        checked = now;
+        FILE *file = fopen(MB_TOUCH_PATH, "re");
+        unsigned long long value = 0;
+        if (file) {
+            if (fscanf(file, "%llu", &value) != 1) value = 0;
+            fclose(file);
+        }
+        deadline = value > now && value <= now + 250 ? value : 0;
+    }
+    return deadline > now ? deadline : 0;
 }

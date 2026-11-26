@@ -4,4 +4,4 @@ rm -f /data/misc/skia-motion-blur/skia-motion-blur.active
 if [ -f /data/misc/skia-motion-blur/skia-motion-blur.owned ]; then
   service call SurfaceFlinger 1008 i32 0 >/dev/null 2>&1
 fi
-rm -f /data/misc/skia-motion-blur/skia-motion-blur.prop /data/misc/skia-motion-blur/skia-motion-blur.launches /data/misc/skia-motion-blur/skia-motion-blur.status /data/misc/skia-motion-blur/skia-motion-blur.owned /data/misc/skia-motion-blur/skia-motion-blur.gles
+rm -f /data/misc/skia-motion-blur/skia-motion-blur.prop /data/misc/skia-motion-blur/skia-motion-blur.launches /data/misc/skia-motion-blur/skia-motion-blur.status /data/misc/skia-motion-blur/skia-motion-blur.owned /data/misc/skia-motion-blur/skia-motion-blur.gles /data/misc/skia-motion-blur/skia-motion-blur.touch

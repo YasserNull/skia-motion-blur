@@ -12,7 +12,10 @@ vec3 guideColor(sampler2D frame, vec2 p) {
                    textureLod(frame, p + vec2(-d.x, d.y), 0.0).rgb);
 }
 #else
-const int guideSamples = 16;
+#ifndef MB_GUIDE_SAMPLES
+#define MB_GUIDE_SAMPLES 16
+#endif
+const int guideSamples = MB_GUIDE_SAMPLES;
 vec3 guideColor(sampler2D frame, vec2 p) { return mbSample(frame, p).rgb; }
 #endif
 

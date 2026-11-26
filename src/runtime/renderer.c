@@ -4,8 +4,9 @@
 #include "log.h"
 #include <string.h>
 
-static void uniforms(GLuint program, const GLint at[10], unsigned width, unsigned height,
-                     float strength, bool debug, float scale_x, float scale_y, float radius_scale) {
+static void uniforms(GLuint program, const GLint at[11], unsigned width, unsigned height,
+                     float strength, bool debug, float scale_x, float scale_y, float radius_scale,
+                     float interaction) {
     glUseProgram(program);
     glUniform1i(at[0], 0);
     glUniform1i(at[1], 1);
@@ -17,6 +18,7 @@ static void uniforms(GLuint program, const GLint at[10], unsigned width, unsigne
     glUniform1f(at[5], strength);
     glUniform1f(at[6], debug ? 1 : 0);
     glUniform1f(at[9], radius_scale);
+    glUniform1f(at[10], interaction);
 }
 
 static void run_guide(MbRenderer *r) {
@@ -62,7 +64,7 @@ static void trace(MbRenderer *r, const MbConfig *config, unsigned w, unsigned h,
 }
 
 bool mb_renderer_apply(MbRenderer *r, GLuint target, GLuint target_texture, unsigned w, unsigned h,
-                       const MbConfig *config, uint64_t active) {
+                       const MbConfig *config, uint64_t active, uint64_t touch_until) {
     bool cleanup_requested = r->repaint_needed;
     r->repaint_needed = false;
     if (!target || !target_texture || !w || !h) return false;
@@ -107,11 +109,15 @@ bool mb_renderer_apply(MbRenderer *r, GLuint target, GLuint target_texture, unsi
     uint64_t now = mb_millis();
     bool history = r->previous && now - r->previous <= config->history_timeout_ms &&
                    r->generation == config->generation && r->session == active;
+    if (!history) r->motion_until = 0;
     uint64_t elapsed = history ? now - r->previous : 0;
     // Scale the observed displacement to the requested exposure duration.
     float time_scale = elapsed ? config->exposure_ms / (float)elapsed : 1.0f;
     if (time_scale < 0.1f) time_scale = 0.1f;
     if (time_scale > 2.0f) time_scale = 2.0f;
+    uint64_t interaction_until = touch_until > r->motion_until ? touch_until : r->motion_until;
+    float interaction = interaction_until > now ? (float)(interaction_until - now) / 250.0f : 0.0f;
+    if (interaction > 1.0f) interaction = 1.0f;
     r->previous = now;
     r->generation = config->generation;
     r->session = active;
@@ -125,12 +131,12 @@ bool mb_renderer_apply(MbRenderer *r, GLuint target, GLuint target_texture, unsi
         glBindTexture(GL_TEXTURE_2D, 0);
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, 0);
-        uniforms(r->guide_program, r->guide_uniforms, hw, hh, config->strength, config->debug, 1, 1, 1);
+        uniforms(r->guide_program, r->guide_uniforms, hw, hh, config->strength, config->debug, 1, 1, 1, interaction);
         run_guide(r);
         glBindTexture(GL_TEXTURE_2D, r->guide);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, r->flow_framebuffer);
         glViewport(0, 0, mb_div_ceil(hw, 16), mb_div_ceil(hh, 16));
-        uniforms(r->motion_program, r->motion_uniforms, hw, hh, config->strength, config->debug, 1, 1, 1);
+        uniforms(r->motion_program, r->motion_uniforms, hw, hh, config->strength, config->debug, 1, 1, 1, interaction);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, r->flow);
@@ -141,17 +147,17 @@ bool mb_renderer_apply(MbRenderer *r, GLuint target, GLuint target_texture, unsi
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, r->blur_framebuffer);
             glViewport(0, 0, hw, hh);
             uniforms(r->resolve_program, r->resolve_uniforms, hw, hh,
-                     config->strength * time_scale, config->debug, 1, 1, (float)hw / w);
+                     config->strength * time_scale, config->debug, 1, 1, (float)hw / w, interaction);
             glDrawArrays(GL_TRIANGLES, 0, 3);
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, r->original);
             glActiveTexture(GL_TEXTURE2);
             glBindTexture(GL_TEXTURE_2D, r->blur);
             uniforms(r->composite_program, r->composite_uniforms, w, h,
-                     config->strength, config->debug, 1, 1, 1);
+                     config->strength, config->debug, 1, 1, 1, interaction);
         } else {
             uniforms(r->resolve_program, r->resolve_uniforms, w, h,
-                     config->strength * time_scale, config->debug, 1, 1, 1);
+                     config->strength * time_scale, config->debug, 1, 1, 1, interaction);
         }
         if (r->single_target) {
             // ARM drivers without MRT fetch require attachment zero to be the only image.
@@ -174,6 +180,7 @@ bool mb_renderer_apply(MbRenderer *r, GLuint target, GLuint target_texture, unsi
             observed = true;
             changed |= samples != 0;
         }
+        if (changed) r->motion_until = mb_millis() + 250;
         // A cleanup frame needs no blur pass once the prior query found no motion.
         if (!(cleanup_requested && observed && !changed &&
               !r->motion_pending[0] && !r->motion_pending[1])) {

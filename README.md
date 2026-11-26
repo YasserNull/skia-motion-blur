@@ -89,7 +89,7 @@ Got motion blur on your Android!
 enabled=1
 test=balanced
 strength=8.0
-exposure_ms=16.667
+exposure_ms=8.333
 temp_settings=1
 log=0
 debug=0
@@ -168,6 +168,15 @@ allow_packages=*
 ```properties
 allow_packages=com.android.settings,com.android.launcher3
 ```
+
+لاستثناء تطبيقات محددة من التأثير مع إبقاء بقية التطبيقات مسموحًا بها:
+
+```properties
+allow_packages=*
+exclude_packages=com.android.launcher3
+```
+
+يُستثنى Pixel Launcher افتراضيًا لتقليل حمل التركيب أثناء تمرير درج التطبيقات.
 
 ### متى تُطبّق التغييرات؟
 

@@ -33,6 +33,7 @@ void mb_config_free(MbConfig *config) {
 
 void mb_config_destroy(MbConfig *config) {
     clear_list(&config->packages);
+    clear_list(&config->excluded_packages);
     clear_list(&config->layer_prefixes);
     clear_list(&config->excluded_layers);
     mb_config_init(config);
@@ -101,8 +102,25 @@ static bool parse_test(const char *value, MbTestMode *mode) {
     return false;
 }
 
+static bool boundary(char c) {
+    return !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+             (c >= '0' && c <= '9') || c == '.' || c == '_');
+}
+
+static bool package_in_name(const char *name, const char *package) {
+    size_t size = strlen(package);
+    const char *at = name;
+    while ((at = strstr(at, package))) {
+        if ((at == name || boundary(at[-1])) && (!at[size] || boundary(at[size]))) return true;
+        ++at;
+    }
+    return false;
+}
+
 bool mb_config_allows_package(const MbConfig *config, const char *package) {
     if (!config->enabled || config->strength <= 0 || !package || !*package) return false;
+    for (size_t i = 0; i < config->excluded_packages.count; ++i)
+        if (!strcmp(config->excluded_packages.items[i], package)) return false;
     for (size_t i = 0; i < config->packages.count; ++i) {
         const char *allowed = config->packages.items[i];
         if (!strcmp(allowed, "*") || !strcmp(allowed, package)) return true;
@@ -110,13 +128,10 @@ bool mb_config_allows_package(const MbConfig *config, const char *package) {
     return false;
 }
 
-static bool boundary(char c) {
-    return !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-             (c >= '0' && c <= '9') || c == '.' || c == '_');
-}
-
 bool mb_config_matches(const MbConfig *config, const char *name) {
     if (!config->enabled || config->strength <= 0 || !name || !*name || strstr(name, "SurfaceView")) return false;
+    for (size_t i = 0; i < config->excluded_packages.count; ++i)
+        if (package_in_name(name, config->excluded_packages.items[i])) return false;
     for (size_t i = 0; i < config->excluded_layers.count; ++i)
         if (strstr(name, config->excluded_layers.items[i])) return false;
     for (size_t i = 0; i < config->packages.count; ++i)
@@ -178,7 +193,8 @@ bool mb_parse_config(const char *text, size_t size, MbConfig *result) {
                     if (next->packages.items[0]) { next->packages.count = 1; valid = true; }
                 }
             } else valid = parse_list(value, &next->packages, true);
-        } else if (!strcmp(key, "allow_layer_prefixes")) valid = parse_list(value, &next->layer_prefixes, false);
+        } else if (!strcmp(key, "exclude_packages")) valid = parse_list(value, &next->excluded_packages, true);
+        else if (!strcmp(key, "allow_layer_prefixes")) valid = parse_list(value, &next->layer_prefixes, false);
         else if (!strcmp(key, "exclude_layers")) valid = parse_list(value, &next->excluded_layers, false);
         if (!valid) break;
     }

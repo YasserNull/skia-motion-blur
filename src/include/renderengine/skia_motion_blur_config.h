@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define MB_CONFIG_MAX_TEXT 16384
-#define MB_CONFIG_DEFAULTS { .temp_settings = true, .strength = 3.0f, .exposure_ms = 16.667f, .max_layers = 3, .history_scale = 2, \
+#define MB_CONFIG_DEFAULTS { .temp_settings = true, .strength = 3.0f, .exposure_ms = 8.333f, .max_layers = 3, .history_scale = 2, \
     .history_timeout_ms = 150, .memory_limit_mb = 48 }
 
 typedef enum {
@@ -36,6 +36,7 @@ typedef struct {
     unsigned memory_limit_mb;
     uint64_t generation;
     MbStringList packages;
+    MbStringList excluded_packages;
     MbStringList layer_prefixes;
     MbStringList excluded_layers;
 } MbConfig;

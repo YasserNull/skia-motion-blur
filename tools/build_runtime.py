@@ -52,6 +52,7 @@ uniform vec2 mbFlowScale;
 uniform float mbStrength;
 uniform float mbDebug;
 uniform float mbRadiusScale;
+uniform float mbInteraction;
 """
     sources = {"vertexShader": vertex, "guideComputeShader": compute,
                "guideShader": prefix + common + "\nvoid main() { color = mbGuide(); }\n",
@@ -69,6 +70,14 @@ void main() {
     }
     sources["filteredGuideComputeShader"] = compute.replace(
         "#version 310 es", "#version 310 es\n#define MB_FILTER_GUIDE", 1)
+    sources["fullGuideComputeShader"] = compute.replace(
+        "#version 310 es", "#version 310 es\n#define MB_GUIDE_SAMPLES 64", 1)
+    sources["fullGuideShader"] = (prefix + common).replace(
+        "#version 300 es", "#version 300 es\n#define MB_GUIDE_SAMPLES 64", 1) + \
+        "\nvoid main() { color = mbGuide(); }\n"
+    sources["fullResolveShader"] = (prefix + common).replace(
+        "#version 300 es", "#version 300 es\n#define MB_BLUR_TAPS 32", 1) + \
+        "\nvoid main() { color = mbResolve(uv); if (mbDebug < 0.5 && !mbBlurred) discard; }\n"
     composite = """
 void main() {
     vec4 correction = textureLod(flowFrame, uv, 0.0);
@@ -132,7 +141,7 @@ def build(ndk, abis):
                   ("skia_motion_blur_config.c", "config_cache.c", "utils.c")]
         for name, inputs, flags in [
             ("launcher", ["launcher.c"], []),
-            ("controller", ["controller.c", "control.c", "focus.c"], shared + ["-llog"]),
+            ("controller", ["controller.c", "control.c", "focus.c", "input_monitor.c"], shared + ["-llog"]),
             ("libskiamotionblur.so", ["hooks.c", "filter.c", "tracking.c", "renderer.c",
                                     "renderer_resources.c", "gl_state.c", "repaint.c"],
              shared + ["-shared", "-Wl,--exclude-libs,ALL",

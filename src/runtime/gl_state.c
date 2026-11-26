@@ -15,13 +15,13 @@ void mb_gl_save_state(MbGlState *state) {
     glGetBooleanv(GL_COLOR_WRITEMASK, state->mask);
     for (size_t i = 0; i < MB_GL_STATE_FLAGS; ++i) {
         state->enabled[i] = glIsEnabled(flags[i]);
-        glDisable(flags[i]);
+        if (state->enabled[i]) glDisable(flags[i]);
     }
     for (int i = 0; i < 4; ++i) {
         glActiveTexture(GL_TEXTURE0 + i);
         glGetIntegerv(GL_TEXTURE_BINDING_2D, &state->textures[i]);
         glGetIntegerv(GL_SAMPLER_BINDING, &state->samplers[i]);
-        glBindSampler(i, 0);
+        if (state->samplers[i]) glBindSampler(i, 0);
     }
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
@@ -38,7 +38,7 @@ void mb_gl_restore_state(const MbGlState *state) {
     for (int i = 0; i < 4; ++i) {
         glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(GL_TEXTURE_2D, state->textures[i]);
-        glBindSampler(i, state->samplers[i]);
+        if (state->samplers[i]) glBindSampler(i, state->samplers[i]);
     }
     glActiveTexture(state->active);
 }

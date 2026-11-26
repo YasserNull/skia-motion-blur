@@ -2,6 +2,7 @@
 #include "policy.h"
 #include "focus.h"
 #include "control.h"
+#include "input_monitor.h"
 #include "log.h"
 #include <renderengine/skia_motion_blur_config.h>
 #include <limits.h>
@@ -53,6 +54,7 @@ int main(int argc, char **argv) {
     MbConfig *config = mb_config_create();
     if (!config) { unlink(MB_LEASE_PATH); return 1; }
     bool valid = false, mirrored = false, initialized = false, temp_settings = false, mode_selected = false;
+    bool input_started = false;
     uint64_t next_config_check = 0, next_focus_check = 0;
     char *package = NULL;
     while (running && access(disabled, F_OK) && access(removed, F_OK)) {
@@ -89,6 +91,10 @@ int main(int argc, char **argv) {
             mb_config_free(config);
             config = next;
             valid = next_valid;
+            if (!input_started && valid && mirrored && config->enabled && config->strength > 0) {
+                mb_input_monitor_start();
+                input_started = true;
+            }
             if (config->log) {
                 MB_LOG(config->log, ANDROID_LOG_INFO, "Controller config valid=%d mirrored=%d temp_settings_start=%d enabled=%d strength=%.2f exposure_ms=%.2f test=%s scale=%u timeout_ms=%u memory_mb=%u packages=%zu debug=%d",
                     valid, mirrored, temp_settings, config->enabled, config->strength,

@@ -51,7 +51,7 @@ class SettingsTests(unittest.TestCase):
             stock, payload = data / "runtime/surfaceflinger", data / "runtime/libskiamotionblur.so"
             stock.write_bytes(b"original")
             payload.write_bytes(b"payload")
-            for suffix in ("active", "owned", "prop", "launches", "status", "gles"):
+            for suffix in ("active", "owned", "prop", "launches", "status", "gles", "touch"):
                 (data / f"skia-motion-blur.{suffix}").touch()
             source = (ROOT / "module/uninstall.sh").read_text().replace("/data/misc/skia-motion-blur", str(data))
             self.assertNotIn("/data/misc/", source)

@@ -120,6 +120,8 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, input);
     glViewport(2, 3, 40, 50);
     glEnable(GL_SCISSOR_TEST);
+    if (session & 1) glEnable(GL_DITHER);
+    else glDisable(GL_DITHER);
     glScissor(1, 1, 10, 10);
     glColorMask(GL_TRUE, GL_FALSE, GL_TRUE, GL_FALSE);
     if (benchmark) glFinish();
@@ -129,7 +131,7 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     render_time_ms += frame_interval_ms;
     renderer_clock = true;
 #endif
-    bool applied = mb_renderer_apply(&renderer, target, texture, width, height, config, session);
+    bool applied = mb_renderer_apply(&renderer, target, texture, width, height, config, session, 0);
 #ifdef MB_TEST_CLOCK
     renderer_clock = false;
 #endif
@@ -156,11 +158,17 @@ static unsigned char *submit(const unsigned char *input, uint64_t session) {
     glGetBooleanv(GL_COLOR_WRITEMASK, mask);
     require(viewport[0] == 2 && viewport[1] == 3 && viewport[2] == 40 && viewport[3] == 50, "Viewport restored");
     require(glIsEnabled(GL_SCISSOR_TEST) && mask[0] && !mask[1] && mask[2] && !mask[3], "GL state restored");
+    require(glIsEnabled(GL_DITHER) == (GLboolean)(session & 1), "Enabled and disabled dither state restored");
     GLint binding = 0, sampling = 0;
     glActiveTexture(GL_TEXTURE3);
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &binding);
     glGetIntegerv(GL_SAMPLER_BINDING, &sampling);
     require(binding == (GLint)texture && sampling == (GLint)sampler, "Guide texture unit restored");
+    for (unsigned i = 0; i < 3; ++i) {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glGetIntegerv(GL_SAMPLER_BINDING, &sampling);
+        require(sampling == 0, "Unbound caller samplers remain unbound");
+    }
     glActiveTexture(GL_TEXTURE0);
     unsigned char *output = allocate_frame();
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, output);

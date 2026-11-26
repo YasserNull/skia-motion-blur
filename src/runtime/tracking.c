@@ -76,21 +76,44 @@ void mb_table_erase(MbBufferTable *table, uintptr_t first, uintptr_t second) {
     --table->count;
 }
 
-MbRenderer *mb_tracking_renderer(EGLContext context, bool create) {
-    for (size_t i = 0; i < mb_tracking.context_count; ++i)
-        if (mb_tracking.contexts[i].context == context) return &mb_tracking.contexts[i].renderer;
-    if (!create || mb_tracking.context_count == 16) return NULL;
-    mb_tracking.contexts[mb_tracking.context_count] = (MbRenderContext){ .context = context };
-    return &mb_tracking.contexts[mb_tracking.context_count++].renderer;
+MbRenderer *mb_tracking_renderer(EGLContext context, unsigned width, unsigned height, bool create) {
+    if (!width || !height) return NULL;
+    for (size_t i = 0; i < mb_tracking.output_count; ++i) {
+        MbRenderOutput *output = &mb_tracking.outputs[i];
+        if (output->context == context && output->width == width && output->height == height)
+            return &output->renderer;
+    }
+    if (!create || mb_tracking.output_count == 16) return NULL;
+    mb_tracking.outputs[mb_tracking.output_count] = (MbRenderOutput){
+        .context = context, .width = width, .height = height
+    };
+    return &mb_tracking.outputs[mb_tracking.output_count++].renderer;
+}
+
+unsigned mb_tracking_memory_limit(EGLContext context, const MbRenderer *renderer, unsigned limit_mb) {
+    uint64_t remaining = (uint64_t)limit_mb * 1024 * 1024;
+    for (size_t i = 0; i < mb_tracking.output_count; ++i) {
+        const MbRenderOutput *output = &mb_tracking.outputs[i];
+        if (output->context != context || &output->renderer == renderer || !output->renderer.ready)
+            continue;
+        if (output->renderer.memory_bytes >= remaining) return 0;
+        remaining -= output->renderer.memory_bytes;
+    }
+    return (unsigned)(remaining / (1024 * 1024));
+}
+
+void mb_tracking_reset_context(EGLContext context) {
+    for (size_t i = 0; i < mb_tracking.output_count; ++i)
+        if (mb_tracking.outputs[i].context == context) mb_renderer_reset(&mb_tracking.outputs[i].renderer);
 }
 
 void mb_tracking_remove_context(EGLContext context) {
-    for (size_t i = 0; i < mb_tracking.context_count; ++i) {
-        if (mb_tracking.contexts[i].context != context) continue;
+    for (size_t i = mb_tracking.output_count; i-- > 0;) {
+        if (mb_tracking.outputs[i].context != context) continue;
         // Context-local GL objects require this context for deletion.
-        if (eglGetCurrentContext() == context) mb_renderer_destroy(&mb_tracking.contexts[i].renderer);
-        memmove(mb_tracking.contexts + i, mb_tracking.contexts + i + 1, (--mb_tracking.context_count - i) * sizeof(*mb_tracking.contexts));
-        break;
+        if (eglGetCurrentContext() == context) mb_renderer_destroy(&mb_tracking.outputs[i].renderer);
+        memmove(mb_tracking.outputs + i, mb_tracking.outputs + i + 1,
+                (--mb_tracking.output_count - i) * sizeof(*mb_tracking.outputs));
     }
     for (size_t i = mb_tracking.textures.count; i-- > 0;)
         if (mb_tracking.textures.items[i].first == (uintptr_t)context)

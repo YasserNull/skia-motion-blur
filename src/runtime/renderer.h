@@ -16,9 +16,9 @@ typedef struct {
     GLuint motion_query[2];
     bool motion_pending[2];
     unsigned next_motion_query;
-    GLint guide_uniforms[10], motion_uniforms[10], resolve_uniforms[10], composite_uniforms[10];
+    GLint guide_uniforms[11], motion_uniforms[11], resolve_uniforms[11], composite_uniforms[11];
     unsigned width, height, current, history_width, history_height, scale;
-    uint64_t previous, generation, session;
+    uint64_t previous, generation, session, motion_until;
     uint64_t log_last, log_calls, log_no_history, log_clean, log_draw;
     bool ready, failed, repaint_needed;
 } MbRenderer;
@@ -30,6 +30,6 @@ static inline const char *mb_renderer_guide_name(const MbRenderer *r) {
 
 bool mb_renderer_initialize(MbRenderer *renderer, unsigned width, unsigned height, const MbConfig *config, bool multisampled);
 bool mb_renderer_apply(MbRenderer *renderer, GLuint target, GLuint target_texture, unsigned width, unsigned height,
-                       const MbConfig *config, uint64_t active);
+                       const MbConfig *config, uint64_t active, uint64_t touch_until);
 void mb_renderer_reset(MbRenderer *renderer);
 void mb_renderer_destroy(MbRenderer *renderer);

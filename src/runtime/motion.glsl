@@ -1,3 +1,10 @@
+#ifndef MB_GUIDE_SAMPLES
+#define MB_GUIDE_SAMPLES 16
+#endif
+#ifndef MB_BLUR_TAPS
+#define MB_BLUR_TAPS 8
+#endif
+
 bool mbBlurred = false;
 
 vec4 mbEncode(vec2 motion, float confidence) {
@@ -5,8 +12,8 @@ vec4 mbEncode(vec2 motion, float confidence) {
     return vec4((motion * confidence * 4.0 + 128.0) / 255.0, confidence, 0.0);
 }
 
-vec2 mbGuidePts[16];
-vec4 mbGuideRef[16];
+vec2 mbGuidePts[MB_GUIDE_SAMPLES];
+vec4 mbGuideRef[MB_GUIDE_SAMPLES];
 int mbGuideN = 0;
 float mbGuideWeight = 1.0;
 
@@ -21,8 +28,8 @@ float mbGuideCost(vec2 candidate) {
 vec4 mbGuide() {
     float weight = 0.0, zero = 0.0;
     mbGuideN = 0;
-    for (int i = 0; i < 16; ++i) {
-        vec2 p = mbGuidePoint(i, 16);
+    for (int i = 0; i < MB_GUIDE_SAMPLES; ++i) {
+        vec2 p = mbGuidePoint(i, MB_GUIDE_SAMPLES);
         vec3 color = mbCur(p).rgb;
         float change = mbDifference(color, mbPrev(p).rgb);
         float vote = smoothstep(0.005, 0.05, change);
@@ -33,7 +40,7 @@ vec4 mbGuide() {
         weight += vote;
         zero += change * vote;
     }
-    if (weight < 0.75) return vec4(vec2(128.0 / 255.0), 0.0, 0.0);
+    if (weight < float(MB_GUIDE_SAMPLES) * (3.0 / 64.0)) return vec4(vec2(128.0 / 255.0), 0.0, 0.0);
     mbGuideWeight = weight;
     zero /= weight;
 
@@ -135,7 +142,8 @@ vec4 mbResolve(vec2 p) {
         if (abs(p.x - 0.5) < 1.0 / mbExtent.x) return vec4(vec3(1), original.a);
         if (p.x < 0.5) return vec4(clamp(vec3(0.5 + flow.xy / 62.0, flow.z), 0.0, 1.0), original.a);
     }
-    if (mbStrength * flow.z < 0.01 || length(flow.xy) < 0.75 * mbRadiusScale) return original;
+    float motionThreshold = mix(0.75, 0.20, clamp(mbInteraction, 0.0, 1.0));
+    if (mbStrength * flow.z < 0.01 || length(flow.xy) < motionThreshold * mbRadiusScale) return original;
 
     float change = mbDifference(textureLod(currentHistoryFrame, p, 0.0).rgb,
                                 textureLod(previousFrame, p, 0.0).rgb);
@@ -147,14 +155,14 @@ vec4 mbResolve(vec2 p) {
     vec2 radius = flow.xy * amount * 0.5;
     float maxRadius = 8.0 * clamp(mbStrength, 1.0, 8.0) * mbRadiusScale;
     radius *= min(1.0, maxRadius / max(length(radius), 0.001));
-    int taps = clamp(int(ceil(length(radius) / (2.0 * mbRadiusScale))), 2, 8);
+    int taps = clamp(int(ceil(length(radius) / (2.0 * mbRadiusScale))), 2, MB_BLUR_TAPS);
 
     // Interleaved gradient noise: breaks up tap banding at ~2px spacing.
     float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
 
     vec3 sum = original.rgb;
     float wsum = 1.0;
-    for (int i = 1; i <= 8; ++i) {
+    for (int i = 1; i <= MB_BLUR_TAPS; ++i) {
         if (i > taps) break;
         float t = (float(i) - jitter) / float(taps);
         float w = 1.0 - t;
