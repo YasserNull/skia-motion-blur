@@ -48,7 +48,6 @@ int main(int argc, char **argv) {
     char *previous_config = NULL;
     char *previous_package = NULL;
     const char *previous_reason = "";
-    MbTestMode previous_test = MB_TEST_BALANCED;
     uint64_t session = 0, probe_started = 0;
     bool probe_blocked = false, owned = false;
     MbConfig *config = mb_config_create();
@@ -96,9 +95,9 @@ int main(int argc, char **argv) {
                 input_started = true;
             }
             if (config->log) {
-                MB_LOG(config->log, ANDROID_LOG_INFO, "Controller config valid=%d mirrored=%d temp_settings_start=%d enabled=%d strength=%.2f exposure_ms=%.2f test=%s scale=%u timeout_ms=%u memory_mb=%u packages=%zu debug=%d",
+                MB_LOG(config->log, ANDROID_LOG_INFO, "Controller config valid=%d mirrored=%d temp_settings_start=%d enabled=%d strength=%.2f exposure_ms=%.2f scale=%u timeout_ms=%u memory_mb=%u packages=%zu debug=%d",
                     valid, mirrored, temp_settings, config->enabled, config->strength,
-                    config->exposure_ms, mb_test_name(config->test), config->history_scale, config->history_timeout_ms,
+                    config->exposure_ms, config->history_scale, config->history_timeout_ms,
                     config->memory_limit_mb, config->packages.count, config->debug);
             }
         }
@@ -153,20 +152,19 @@ int main(int argc, char **argv) {
                                 reason, active, owned, (unsigned long long)session, probe_blocked, mirrored);
             last_status_log = now;
         }
-        if (strcmp(reason, previous_reason) || config->test != previous_test || !same_package(package, previous_package)) {
+        if (strcmp(reason, previous_reason) || !same_package(package, previous_package)) {
             MB_LOG(config->log, ANDROID_LOG_INFO, "Controller: %s; foreground=%s",
                                 reason, package && *package ? package : "unknown");
             const char *name = package ? package : "";
             size_t capacity = strlen(name) + 256;
             char *status = malloc(capacity);
             if (status) {
-                snprintf(status, capacity, "sdk=%d\nstrategy=%s\nstate=%s\nforeground=%s\ntest=%s\n",
-                         mb_sdk(), mb_strategy(mb_sdk()), reason, name, mb_test_name(config->test));
+                snprintf(status, capacity, "sdk=%d\nstrategy=%s\nstate=%s\nforeground=%s\n",
+                         mb_sdk(), mb_strategy(mb_sdk()), reason, name);
                 mb_write_control("/data/misc/skia-motion-blur/skia-motion-blur.status", status);
                 free(status);
             }
             previous_reason = reason;
-            previous_test = config->test;
         }
         free(previous_package);
         previous_package = package ? strdup(package) : NULL;

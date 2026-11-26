@@ -8,6 +8,8 @@ static unsigned log_count;
 static int log_priority;
 static char log_text[128];
 
+void mb_input_monitor_start(void) {}
+
 int __android_log_print(int priority, const char *tag, const char *format, ...) {
     assert(!strcmp(tag, "SkiaMotionBlur"));
     ++log_count;

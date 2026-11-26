@@ -25,20 +25,13 @@ int main(int argc, char **argv) {
         "allow_packages=com.example.*", "allow_packages=*,com.example.app", "allow_packages=com.example.app,*",
         "allow_packages=com.example.app,", "allow_packages=com.example.app,  ", "allow_layer_prefixes=*",
         "exposure_ms=0.99", "exposure_ms=50.01", "exposure_ms=nan", "exposure_ms=inf",
-        "temp_settings=maybe", "log=2", "log=maybe", "quality=low", "test=", "test=fast"};
+        "temp_settings=maybe", "log=2", "log=maybe", "quality=low", "test=balanced"};
     for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
         assert(!parse(invalid[i], config));
         assert(config->enabled && config->strength == 0.25f);
         assert(mb_config_allows_package(config, "com.example.app"));
     }
-    const MbTestMode modes[] = {MB_TEST_REFERENCE, MB_TEST_PARALLEL, MB_TEST_FETCH, MB_TEST_BALANCED};
-    for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); ++i) {
-        char line[48];
-        snprintf(line, sizeof(line), "test=%s", mb_test_name(modes[i]));
-        assert(parse(line, config) && config->test == modes[i]);
-        assert(!parse("test=oops", config) && config->test == modes[i]);
-    }
-    assert(parse("enabled=1", config) && config->test == MB_TEST_BALANCED);
+    assert(parse("enabled=1", config));
     assert(parse("exposure_ms=1\ntemp_settings=0\nlog=true\n", config));
     assert(config->exposure_ms == 1 && !config->temp_settings && config->log);
     assert(parse("log=true\n", config) && config->log);
@@ -46,7 +39,7 @@ int main(int argc, char **argv) {
     assert(parse("exposure_ms=50\nhistory_scale=3\n", config));
     assert(config->exposure_ms == 50 && config->history_scale == 3);
     assert(parse("# defaults\r\n enabled = true\r\nallow_packages=*\n", config));
-    assert(config->temp_settings && !config->log && config->exposure_ms > 16.66f && config->exposure_ms < 16.68f);
+    assert(config->temp_settings && !config->log && config->exposure_ms > 8.32f && config->exposure_ms < 8.34f);
     assert(config->strength == 3 && mb_config_allows_package(config, "com.example.game"));
     assert(!mb_config_allows_package(config, ""));
     assert(parse("enabled=1\nstrength=8\nallow_layer_prefixes=NotificationShade\nexclude_layers=Wallpaper\n", config));
@@ -67,8 +60,7 @@ int main(int argc, char **argv) {
     size_t size = fread(defaults, 1, sizeof(defaults), file);
     fclose(file);
     assert(mb_parse_config(defaults, size, config));
-    assert(config->enabled && config->strength == 8 && config->history_scale == 4 &&
-           config->temp_settings && config->test == MB_TEST_BALANCED);
+    assert(config->enabled && config->strength == 8 && config->history_scale == 4 && config->temp_settings);
     assert(!mb_is_surface_flinger());
     const MbConfig *first = mb_config_acquire(), *second = mb_config_acquire();
     assert(first && first == second && !first->enabled);

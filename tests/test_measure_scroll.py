@@ -17,7 +17,7 @@ class ScrollMeasurementTests(unittest.TestCase):
         self.data.mkdir()
         self.settings = self.root / "skia-motion-blur.prop"
         self.mirror = self.data / self.settings.name
-        self.set_config("enabled=1\ntest=balanced\n")
+        self.set_config("enabled=1\n")
         (self.data / "skia-motion-blur.status").write_text("foreground=com.android.settings\n")
         self.script = self.root / "measure-scroll.sh"
         source = (ROOT / "module" / self.script.name).read_text()
@@ -29,7 +29,7 @@ i=$(cat "$TEST_DATA/count" 2>/dev/null || echo 0)
 i=$((i + 1))
 echo "$i" > "$TEST_DATA/count"
 [ ! -f "$TEST_DATA/stale" ] || exit 0
-printf '%s\\ntest=balanced\\nguide=compute\\ncomposite=fetch-ext\\n' "$i" > "$TEST_DATA/skia-motion-blur.gles"
+printf '%s\\nguide=compute\\ncomposite=fetch-ext\\n' "$i" > "$TEST_DATA/skia-motion-blur.gles"
 ''')
         self.stub("dumpsys", '''
 [ "$3" != reset ] || exit 0
@@ -57,10 +57,10 @@ printf 'Total frames rendered: 100\\nJanky frames: 5 (5.00%%)\\n50th percentile:
         self.assertEqual((self.data / "count").read_text().strip(), "14")
 
     def test_waits_for_controller_and_requires_fresh_frames(self):
-        self.settings.write_text("test=fetch\n")
+        self.settings.write_text("strength=4\n")
         self.assertNotEqual(self.measure().returncode, 0)
         self.assertFalse((self.data / "count").exists())
-        self.set_config("enabled=1\ntest=balanced\n")
+        self.set_config("enabled=1\n")
         (self.data / "stale").touch()
         self.assertIn("No fresh GLES frame", self.measure().stderr)
 

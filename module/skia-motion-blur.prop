@@ -1,6 +1,4 @@
 enabled=1
-# test = reference | parallel | fetch | balanced
-test=balanced
 strength=8.0
 exposure_ms=8.333
 temp_settings=1

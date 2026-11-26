@@ -193,16 +193,6 @@ static void expect_cleanup(const unsigned char *frame, uint64_t session, const c
     require(!renderer.repaint_needed, message);
 }
 
-static void set_mode(const char *name) {
-    char line[64];
-    MbConfig parsed;
-    mb_config_init(&parsed);
-    int n = snprintf(line, sizeof(line), "test=%s", name);
-    require(n > 0 && (size_t)n < sizeof(line) && mb_parse_config(line, (size_t)n, &parsed), "Known test mode");
-    config->test = parsed.test;
-    mb_config_destroy(&parsed);
-}
-
 static int compare_times(const void *left, const void *right) {
     double a = *(const double *)left, b = *(const double *)right;
     return (a > b) - (a < b);
@@ -228,56 +218,24 @@ static void run_benchmark(void) {
         free(input);
     }
     qsort(times, samples, sizeof(times[0]), compare_times);
-    printf("BENCH test=%s guide=%s composite=%s size=%ux%u scale=%u strength=8 samples=%d median_ms=%.3f p95_ms=%.3f texture_bytes=%llu\n",
-           mb_test_name(config->test), mb_renderer_guide_name(&renderer), renderer.composite_path,
+    printf("BENCH guide=%s composite=%s size=%ux%u scale=%u strength=8 samples=%d median_ms=%.3f p95_ms=%.3f texture_bytes=%llu\n",
+           mb_renderer_guide_name(&renderer), renderer.composite_path,
            width, height, scale, samples, (times[15] + times[16]) / 2.0, times[30],
            (unsigned long long)renderer.memory_bytes);
 }
-
-#ifdef MB_TEST_CLOCK
-static void compare_mode_output(void) {
-    MbTestMode selected = config->test;
-    const MbTestMode modes[] = {MB_TEST_REFERENCE, MB_TEST_PARALLEL, MB_TEST_FETCH, MB_TEST_BALANCED};
-    unsigned char *first = pixels(0), *moved = pixels(8);
-    unsigned char *reference[2] = {NULL, NULL};
-    for (size_t i = 3; i < frame_size(); i += 4) moved[i] = (unsigned char)(i * 31);
-    for (size_t m = 0; m < sizeof(modes) / sizeof(modes[0]); ++m) {
-        config->test = modes[m];
-        expect_equal(submit(first, 90 + m), first, "Mode switch starts with raw history");
-        unsigned char *output = submit(moved, 90 + m);
-        require(memcmp(output, moved, frame_size()) != 0, "Compared mode renders blur");
-        // Compare each composite against the copy made with the same motion estimator.
-        size_t group = scale == 3 && renderer.parallel_guide ? 1 : 0;
-        for (size_t i = 0; i < frame_size(); ++i) {
-            if (i % 4 == 3) require(output[i] == moved[i], "Mode comparison preserves alpha");
-            else if (reference[group])
-                require(abs((int)output[i] - reference[group][i]) <= 1, "Motion matches within one RGB level");
-        }
-        if (reference[group]) free(output);
-        else reference[group] = output;
-        expect_equal(submit(moved, 90 + m), moved, "First still frame is sharp in every mode");
-    }
-    config->test = selected;
-    free(first);
-    free(moved);
-    free(reference[0]);
-    free(reference[1]);
-}
-#endif
 
 int main(int argc, char **argv) {
     config = mb_config_create();
     require(config != NULL, "Configuration allocation");
     if (argc != 1) {
-        require((argc == 5 || argc == 6) && (!strcmp(argv[1], "--benchmark") || !strcmp(argv[1], "--check")),
-                "Usage: gles_test [--check|--benchmark width height history_scale [test]]");
+        require(argc == 5 && (!strcmp(argv[1], "--benchmark") || !strcmp(argv[1], "--check")),
+                "Usage: gles_test [--check|--benchmark width height history_scale]");
         benchmark = !strcmp(argv[1], "--benchmark");
         width = (unsigned)strtoul(argv[2], NULL, 10);
         height = (unsigned)strtoul(argv[3], NULL, 10);
         scale = (unsigned)strtoul(argv[4], NULL, 10);
         require(width >= 64 && height >= 64 && width <= 4096 && height <= 4096 && scale >= 1 && scale <= 4,
                 "Dimensions and history scale");
-        if (argc == 6) set_mode(argv[5]);
     }
     for (int version = 1; version < 50; ++version)
         require(mb_supported(version) == (version >= 31 && version <= 36), "SDK bounds");
@@ -320,9 +278,6 @@ int main(int argc, char **argv) {
         run_benchmark();
         goto finish;
     }
-#ifdef MB_TEST_CLOCK
-    compare_mode_output();
-#endif
     unsigned char *frame = pixels(0);
     expect_equal(submit(frame, 1), frame, "First frame preserved");
     require(!renderer.repaint_needed, "First frame does not schedule cleanup");
@@ -507,7 +462,7 @@ int main(int argc, char **argv) {
     free(blurred);
     free(shifted);
     free(frame);
-    printf("PASS test=%s guide=%s composite=%s moving_pixels=%zu\n", mb_test_name(config->test),
+    printf("PASS guide=%s composite=%s moving_pixels=%zu\n",
            mb_renderer_guide_name(&renderer), renderer.composite_path, changed);
 finish:
     mb_renderer_destroy(&renderer);

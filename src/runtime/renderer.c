@@ -53,8 +53,8 @@ static void trace(MbRenderer *r, const MbConfig *config, unsigned w, unsigned h,
     else if (!strcmp(event, "draw")) ++r->log_draw;
     uint64_t now = mb_millis();
     if (r->log_last && now - r->log_last < 5000) return;
-    MB_LOG(config->log, ANDROID_LOG_INFO, "Renderer event=%s test=%s guide=%s composite=%s output=%ux%u history=%ux%u memory_bytes=%llu elapsed_ms=%llu exposure_ms=%.2f time_scale=%.2f strength=%.2f cleanup=%d calls=%llu draw=%llu clean=%llu no_history=%llu",
-        event, mb_test_name(r->test), mb_renderer_guide_name(r), r->composite_path, w, h, hw, hh, (unsigned long long)memory, (unsigned long long)elapsed,
+    MB_LOG(config->log, ANDROID_LOG_INFO, "Renderer event=%s guide=%s composite=%s output=%ux%u history=%ux%u memory_bytes=%llu elapsed_ms=%llu exposure_ms=%.2f time_scale=%.2f strength=%.2f cleanup=%d calls=%llu draw=%llu clean=%llu no_history=%llu",
+        event, mb_renderer_guide_name(r), r->composite_path, w, h, hw, hh, (unsigned long long)memory, (unsigned long long)elapsed,
         config->exposure_ms, time_scale, config->strength, r->repaint_needed,
         (unsigned long long)r->log_calls, (unsigned long long)r->log_draw,
         (unsigned long long)r->log_clean,
@@ -80,11 +80,11 @@ bool mb_renderer_apply(MbRenderer *r, GLuint target, GLuint target_texture, unsi
     if (history_scale < 1 || history_scale > 4) return false;
     unsigned hw = mb_div_ceil(w, history_scale), hh = mb_div_ceil(h, history_scale);
     GLint samples = 0;
-    if (history_scale > 1 && (config->test == MB_TEST_BALANCED || config->test == MB_TEST_FETCH))
+    if (history_scale > 1)
         glGetIntegerv(GL_SAMPLE_BUFFERS, &samples);
     bool multisampled = samples != 0;
     bool same_layout = r->width == w && r->height == h && r->scale == history_scale &&
-                       r->test == config->test && r->multisampled == multisampled;
+                       r->multisampled == multisampled;
     if (r->failed && same_layout && r->memory_limit == config->memory_limit_mb) return false;
     MbGlState state;
     mb_gl_save_state(&state);
@@ -92,8 +92,8 @@ bool mb_renderer_apply(MbRenderer *r, GLuint target, GLuint target_texture, unsi
         !mb_renderer_initialize(r, w, h, config, multisampled)) {
         mb_renderer_destroy(r);
         r->failed = true;
-        MB_LOG(config->log, ANDROID_LOG_WARN, "Renderer unavailable for test=%s scale=%u limit=%u MiB",
-               mb_test_name(config->test), history_scale, config->memory_limit_mb);
+        MB_LOG(config->log, ANDROID_LOG_WARN, "Renderer unavailable for scale=%u limit=%u MiB",
+               history_scale, config->memory_limit_mb);
         mb_gl_restore_state(&state);
         return false;
     }

@@ -8,15 +8,6 @@
 #define MB_CONFIG_DEFAULTS { .temp_settings = true, .strength = 3.0f, .exposure_ms = 8.333f, .max_layers = 3, .history_scale = 2, \
     .history_timeout_ms = 150, .memory_limit_mb = 48 }
 
-typedef enum {
-    MB_TEST_BALANCED,
-    MB_TEST_REFERENCE,
-    MB_TEST_PARALLEL,
-    MB_TEST_FETCH
-} MbTestMode;
-
-const char *mb_test_name(MbTestMode mode);
-
 typedef struct {
     char **items;
     size_t count;
@@ -29,7 +20,6 @@ typedef struct {
     bool log;
     float strength;
     float exposure_ms;
-    MbTestMode test;
     unsigned max_layers;
     unsigned history_scale;
     unsigned history_timeout_ms;

@@ -62,9 +62,8 @@ void mb_filter_output(void) {
             FILE *file = fopen("/data/misc/skia-motion-blur/skia-motion-blur.gles", "we");
             if (file) {
                 // The controller reads the leading timestamp; the remaining lines describe the active path.
-                fprintf(file, "%llu\ntest=%s\nguide=%s\ncomposite=%s\nhistory=%ux%u\ntexture_bytes=%llu\n",
-                        (unsigned long long)reported, mb_test_name(current->test),
-                        mb_renderer_guide_name(current), current->composite_path,
+                fprintf(file, "%llu\nguide=%s\ncomposite=%s\nhistory=%ux%u\ntexture_bytes=%llu\n",
+                        (unsigned long long)reported, mb_renderer_guide_name(current), current->composite_path,
                         current->history_width, current->history_height, (unsigned long long)current->memory_bytes);
                 fclose(file);
             }

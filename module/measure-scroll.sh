@@ -23,8 +23,6 @@ settings=$(cat "$CONFIG")
 SOURCE=$(dirname "$0")/skia-motion-blur.prop
 [ -r "$SOURCE" ] && [ "$(cat "$SOURCE")" = "$settings" ] ||
     fail "The controller has not loaded the current module settings yet."
-MODE=$(field test "$CONFIG")
-MODE=${MODE:-balanced}
 ENABLED=$(field enabled "$CONFIG")
 case "$ENABLED" in
     1|true) ENABLED=1 ;;
@@ -47,7 +45,7 @@ scroll_pair() {
 }
 
 snapshot() {
-    # Read the heartbeat once so the mode and timestamp come from the same frame.
+    # Read the timestamp and selected GPU paths from the same frame.
     cat "$GLES" 2>/dev/null || :
 }
 
@@ -55,10 +53,11 @@ before=$(snapshot)
 scroll_pair
 if [ "$ENABLED" = 1 ]; then
     warm=$(snapshot)
-    [ "$warm" != "$before" ] && echo "$warm" | grep -qx "test=$MODE" ||
-        fail "No fresh GLES frame for test=$MODE. Wait for live reload, then retry."
+    [ "$warm" != "$before" ] && echo "$warm" | grep -q '^guide=' &&
+        echo "$warm" | grep -q '^composite=' ||
+        fail "No fresh GLES frame. Wait for live reload, then retry."
 else
-    [ ! -e "$DATA/skia-motion-blur.active" ] || fail "The controller is still switching modes."
+    [ ! -e "$DATA/skia-motion-blur.active" ] || fail "The effect is still active."
 fi
 dumpsys gfxinfo "$PKG" reset >/dev/null
 i=0
@@ -71,8 +70,9 @@ result=$(dumpsys gfxinfo "$PKG")
     fail "The foreground app or settings changed during this run."
 if [ "$ENABLED" = 1 ]; then
     after=$(snapshot)
-    [ "$after" != "$warm" ] && echo "$after" | grep -qx "test=$MODE" ||
-        fail "No matching GLES heartbeat during the run."
+    [ "$after" != "$warm" ] && echo "$after" | grep -q '^guide=' &&
+        echo "$after" | grep -q '^composite=' ||
+        fail "No fresh GLES heartbeat during the run."
     echo "$after" | sed '1d'
 else
     [ ! -e "$DATA/skia-motion-blur.active" ] || fail "The effect became active during this run."

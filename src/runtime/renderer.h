@@ -6,7 +6,6 @@ typedef struct {
     GLuint frames[2], framebuffers[2], flow, flow_framebuffer;
     GLuint original, original_framebuffer;
     GLuint blur, blur_framebuffer, composite_program, single_target;
-    MbTestMode test;
     const char *composite_path;
     uint64_t memory_bytes;
     unsigned memory_limit;

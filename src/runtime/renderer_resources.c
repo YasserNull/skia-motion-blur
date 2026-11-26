@@ -120,7 +120,6 @@ bool mb_renderer_initialize(MbRenderer *r, unsigned w, unsigned h, const MbConfi
     r->width = w;
     r->height = h;
     r->scale = config->history_scale;
-    r->test = config->test;
     r->multisampled = multisampled;
     r->memory_limit = config->memory_limit_mb;
     r->failed = false;
@@ -132,17 +131,15 @@ bool mb_renderer_initialize(MbRenderer *r, unsigned w, unsigned h, const MbConfi
     unsigned fw = mb_div_ceil(hw, 16), fh = mb_div_ceil(hh, 16);
     bool logging = config->log;
 
-    if (r->test == MB_TEST_PARALLEL || r->test == MB_TEST_BALANCED) {
-        GLint major = 0, minor = 0;
-        glGetIntegerv(GL_MAJOR_VERSION, &major);
-        glGetIntegerv(GL_MINOR_VERSION, &minor);
-        if (major > 3 || (major == 3 && minor >= 1)) {
-            const char *source = r->scale == 1 ? fullGuideComputeShader :
-                r->scale == 3 ? filteredGuideComputeShader : guideComputeShader;
-            GLuint compute = shader(GL_COMPUTE_SHADER, source, logging);
-            if (compute) r->guide_program = link_program(compute, 0, logging);
-            r->parallel_guide = r->guide_program != 0;
-        }
+    GLint major = 0, minor = 0;
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
+    if (major > 3 || (major == 3 && minor >= 1)) {
+        const char *source = r->scale == 1 ? fullGuideComputeShader :
+            r->scale == 3 ? filteredGuideComputeShader : guideComputeShader;
+        GLuint compute = shader(GL_COMPUTE_SHADER, source, logging);
+        if (compute) r->guide_program = link_program(compute, 0, logging);
+        r->parallel_guide = r->guide_program != 0;
     }
     if (!r->guide_program) r->guide_program = program(r->scale == 1 ? fullGuideShader : guideShader, logging);
     r->motion_program = program(motionShader, logging);
@@ -154,7 +151,7 @@ bool mb_renderer_initialize(MbRenderer *r, unsigned w, unsigned h, const MbConfi
 
     bool copy = false;
     if (r->scale > 1) {
-        if (!multisampled && (r->test == MB_TEST_FETCH || r->test == MB_TEST_BALANCED)) {
+        if (!multisampled) {
             if (extension("GL_EXT_shader_framebuffer_fetch")) {
                 r->composite_program = program(compositeExtShader, logging);
                 if (r->composite_program) r->composite_path = "fetch-ext";
@@ -200,8 +197,8 @@ bool mb_renderer_initialize(MbRenderer *r, unsigned w, unsigned h, const MbConfi
         (copy && !texture(&r->original, &r->original_framebuffer, w, h))) return false;
     r->current = 0;
     r->ready = true;
-    MB_LOG(logging, ANDROID_LOG_INFO, "Renderer test=%s guide=%s composite=%s history=%ux%u memory_bytes=%llu",
-           mb_test_name(r->test), mb_renderer_guide_name(r), r->composite_path,
+    MB_LOG(logging, ANDROID_LOG_INFO, "Renderer guide=%s composite=%s history=%ux%u memory_bytes=%llu",
+           mb_renderer_guide_name(r), r->composite_path,
            hw, hh, (unsigned long long)r->memory_bytes);
     return true;
 }
