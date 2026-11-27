@@ -10,13 +10,13 @@
 
 ---
 
-## ما هي Skia Motion Blur؟
+## What is Skia Motion Blur?
 
-**Skia Motion Blur** وحدة للنظام تضيف ضبابية الحركة إلى بعض الإطارات المؤهلة أثناء التمرير والانتقالات. يعتمد ظهورها على طريقة رسم المحتوى والجهاز.
+**Skia Motion Blur** is a system module that adds motion blur to eligible frames during scrolling and transitions. Its appearance depends on how the content is rendered and the device.
 
-لا تضيف الوحدة إطارات جديدة ولا ترفع معدل الإطارات (FPS).
+The module does not generate new frames or increase the frame rate (FPS).
 
-استُوحي اسم المشروع من مكتبة الرسوميات **Skia** المستخدمة في أندرويد. لكن التنفيذ الحالي يعمل داخل `SurfaceFlinger` دون اعتراض مكتبة Skia مباشرة.
+The project's name was inspired by the **Skia** graphics library used in Android. However, the current implementation operates within `SurfaceFlinger` without directly hooking the Skia library.
 
 <p align="center">
   <img src="docs/images/skia.svg" alt="skia" width="120">
@@ -24,71 +24,71 @@
 
 ## How Skia Motion Blur Works
 
-تعمل الوحدة داخل `SurfaceFlinger` وتقارن صورًا متتالية من مخرج رسم مؤهل لتقدير اتجاه الحركة ومقدارها، ثم تضيف الضبابية إلى ذلك المخرج.
+The module operates within `SurfaceFlinger` and compares consecutive images from an eligible rendering output to estimate the direction and magnitude of motion, then adds blur to that output.
 
-![مقارنة الإطار السابق والحالي لإضافة ضبابية باتجاه الحركة](docs/images/motion-blur.svg)
+![Comparison of the previous and current frames to add blur in the direction of motion](docs/images/motion-blur.svg)
 
-لمعرفة المزيد عن آلية العمل ومراحل المعالجة راجع [How Skia Motion Blur works](docs/how_skia_motion_blur_works.md).
+To learn more about how it works and the processing stages, see [How Skia Motion Blur works](docs/how_skia_motion_blur_works.md).
 
-## المميزات
+## Features
 
-- ضبابية الحركة أثناء التمرير والانتقالات.
-- معالجة رسومية على مستوى النظام.
-- تخصيص التأثير ودقة المعالجة وتحديد التطبيقات أثناء التشغيل.
+- Motion blur during scrolling and transitions.
+- System-level graphics processing.
+- Customize the effect, processing resolution, and application selection at runtime.
 
-### متى يظهر التأثير؟
+### When does the effect appear?
 
-وجود تطبيق مسموح به وحده لا يكفي؛ يحتاج التأثير إلى مخرج رسم مؤهل وحركة يمكن تقديرها بين صورتين متتاليتين. اللمس يزيد حساسية التأثير للحركة الخفيفة لفترة قصيرة، لكنه ليس شرطًا لظهوره.
+Having an allowed application alone is not enough; the effect requires an eligible rendering output and motion that can be estimated between two consecutive images. Touch input briefly increases the effect's sensitivity to subtle motion, but it is not required for the effect to appear.
 
-## المتطلبات والتوافق
+## Requirements and Compatibility
 
-| المتطلب | الدعم |
+| Requirement | Support |
 |---|---|
 | Android | 12–16 |
-| Magisk | 26 أو أحدث |
+| Magisk | 26 or newer |
 
 > [!NOTE]
-> يدعم المثبّت KernelSU وAPatch أيضًا عند توفر تركيب ملفات الوحدة على مستوى النظام.
+> The installer also supports KernelSU and APatch when system-level module mounting is available.
 >
 > Zygisk is not required.
 
-يتطلب التأثير مخرج رسم متوافقًا مع OpenGL ES 3؛ دعم إصدار أندرويد أو مدير الروت وحده لا يضمن ظهوره.
+The effect requires an OpenGL ES 3-compatible rendering output; support for the Android version or root manager alone does not guarantee that the effect will appear.
 
-### لماذا Android 12 فما فوق؟
+### Why Android 12 and above?
 
-يقتصر الدعم على Android 12–16 وفقًا لسياسة التوافق الخاصة بالوحدة بسبب عدم التحقق من توافق التنفيذ واستقراره على الإصدارات الأقدم.
+Support is limited to Android 12–16 according to the module's compatibility policy, as the compatibility and stability of the implementation on older versions have not been verified.
 
-### توافق الإصدارات
+### Version Compatibility
 
-| الإصدار | استراتيجية EGL |
+| Version | EGL Strategy |
 |---|---|
 | Android 12–13 | EGL KHR |
-| Android 14–16 | EGL KHR وEGL 1.5 |
-| خارج Android 12–16 | غير مدعوم |
+| Android 14–16 | EGL KHR and EGL 1.5 |
+| Outside Android 12–16 | Not supported |
 
-قد يختلف التوافق حسب تنفيذ `SurfaceFlinger` وتعريفات الرسوميات في الجهاز.
+Compatibility may vary depending on the device's `SurfaceFlinger` implementation and graphics drivers.
 
-## التثبيت
+## Installation
 
 > [!CAUTION]
-> ### تحذير قبل التثبيت
+> ### Warning Before Installation
 >
-> تعمل الوحدة داخل عملية `SurfaceFlinger` وقد تتسبب في حدوث **Bootloop** على الأجهزة أو الرومات غير المتوافقة.
+> The module operates within the `SurfaceFlinger` process and may cause a **Bootloop** on incompatible devices or ROMs.
 >
-> **يُنصح بشدة بتثبيت وحدة Bootloop Protector قبل تثبيت Skia Motion Blur.**
+> **It is strongly recommended to install a Bootloop Protector module before installing Skia Motion Blur.**
 
-### خطوات التثبيت
+### Installation Steps
 
-1. نزّل أحدث ملف ZIP من [صفحة الإصدارات](https://github.com/YasserNull/skia-motion-blur/releases).
-2. افتح مدير الروت.
-3. ثبّت الوحدة من ملف ZIP.
-4. أعد تشغيل الجهاز.
+1. Download the latest ZIP file from the [Releases page](https://github.com/YasserNull/skia-motion-blur/releases).
+2. Open your root manager.
+3. Install the module from the ZIP file.
+4. Reboot your device.
 
-## الإعدادات
+## Settings
 
-يمكن تخصيص التأثير من خلال ملف `skia-motion-blur.prop` الموجود داخل مجلد الوحدة.
+The effect can be customized through the `skia-motion-blur.prop` file located inside the module directory.
 
-**Magisk وAPatch**
+**Magisk and APatch**
 
 ```text
 /data/adb/modules/skia-motion-blur/skia-motion-blur.prop
@@ -100,9 +100,9 @@
 /data/adb/ksu/modules/skia-motion-blur/skia-motion-blur.prop
 ```
 
-تُطبّق التعديلات عادة خلال بضع ثوانٍ دون الحاجة إلى إعادة تشغيل الجهاز.
+Changes are usually applied within a few seconds without requiring a device reboot.
 
-### الإعدادات الافتراضية
+### Default Settings
 
 ```properties
 enabled=1
@@ -116,54 +116,54 @@ history_timeout_ms=150
 memory_limit_mb=128
 ```
 
-### شرح الإعدادات
+### Settings Explained
 
-| الإعداد | الوصف | القيم |
+| Setting | Description | Values |
 |---|---|---|
-| `enabled` | تشغيل التأثير أو إيقافه | `0` أو `1` |
-| `strength` | قوة ضبابية الحركة | `0–8` |
-| `exposure_ms` | مدة التعريض بالملّي ثانية | `1–50` |
-| `log` | تسجيل معلومات التشخيص | `0` أو `1` |
-| `debug` | الوضع التشخيصي وإيقاف طلبات تنظيف الأثر بعد الحركة | `0` أو `1` |
-| `allow_packages` | التطبيقات المسموح لها بتشغيل التأثير | `*` أو أسماء الحزم |
-| `exclude_packages` | التطبيقات المستثناة من التأثير | أسماء الحزم |
-| `history_scale` | دقة تقدير الحركة وحساب الضبابية | `1–4` |
-| `history_timeout_ms` | أقصى فاصل زمني بين إطارين لحساب الحركة | `16–250` |
-| `memory_limit_mb` | الحد الأقصى لذاكرة صور المعالجة لكل سياق رسم بالميغابايت | `8–128` |
+| `enabled` | Enable or disable the effect | `0` or `1` |
+| `strength` | Motion blur strength | `0–8` |
+| `exposure_ms` | Exposure duration in milliseconds | `1–50` |
+| `log` | Log diagnostic information | `0` or `1` |
+| `debug` | Diagnostic mode and disabling effect cleanup requests after motion | `0` or `1` |
+| `allow_packages` | Applications allowed to activate the effect | `*` or package names |
+| `exclude_packages` | Applications excluded from the effect | Package names |
+| `history_scale` | Resolution used for motion estimation and blur calculation | `1–4` |
+| `history_timeout_ms` | Maximum time interval between two frames for motion calculation | `16–250` |
+| `memory_limit_mb` | Maximum memory for processing images per rendering context in megabytes | `8–128` |
 
-زيادة `strength` تجعل الضبابية أقوى. وزيادة `exposure_ms` قد تجعل أثر الحركة أطول. استخدام `strength=0` يوقف التأثير.
+Increasing `strength` makes the blur stronger. Increasing `exposure_ms` may make motion trails longer. Using `strength=0` disables the effect.
 
-### مستويات `history_scale`
+### `history_scale` Levels
 
 ![History Scale](docs/images/history-scale.svg)
 
-| القيمة | دقة العرض والارتفاع | نسبة عدد البكسلات | الأثر المتوقع |
+| Value | Width and Height Resolution | Pixel Count Percentage | Expected Effect |
 |---|---:|---:|---|
-| `1` | 100% | 100% | أعلى تفاصيل وأكبر استهلاك للموارد |
-| `2` | 50% | 25% | توازن بين الجودة والأداء |
-| `3` | 33.3% | 11.1% | استهلاك منخفض للموارد |
-| `4` | 25% | 6.25% | أقل استهلاك متوقع وتفاصيل أقل |
+| `1` | 100% | 100% | Highest detail and highest resource usage |
+| `2` | 50% | 25% | Balance between quality and performance |
+| `3` | 33.3% | 11.1% | Low resource usage |
+| `4` | 25% | 6.25% | Lowest expected resource usage and less detail |
 
-عند استخدام قيمة أعلى من `1` تُحسب الضبابية بدقة أقل ثم يُدمج الفرق الناتج مع الصورة الأصلية بدقة الإخراج.
+When using a value higher than `1`, blur is calculated at a lower resolution, then the resulting difference is blended with the original image at the output resolution.
 
 > [!NOTE]
-> لا يغير هذا الإعداد دقة الشاشة. النسب تمثل حجم صور المعالجة وليست قياسات فعلية للأداء.
+> This setting does not change the screen resolution. The percentages represent the size of the processing images, not actual performance measurements.
 
-### تحديد التطبيقات
+### Application Selection
 
-لتفعيل التأثير مع جميع التطبيقات:
+To enable the effect for all applications:
 
 ```properties
 allow_packages=*
 ```
 
-لتفعيله مع تطبيقات محددة فقط:
+To enable it only for specific applications:
 
 ```properties
 allow_packages=com.android.settings,com.example.app
 ```
 
-لاستثناء تطبيقات محددة:
+To exclude specific applications:
 
 ```properties
 allow_packages=*
@@ -171,44 +171,44 @@ exclude_packages=com.example.app
 ```
 
 > [!NOTE]
-> يحدد اختيار التطبيقات متى يُسمح بتشغيل التأثير. لا يعزل طبقة التطبيق عن بقية عناصر الصورة المركبة.
+> Application selection determines when the effect is allowed to activate. It does not isolate the application's layer from the other elements of the composited image.
 
-## السجلات
+## Logs
 
-لتفعيل السجلات:
+To enable logging:
 
 ```properties
 log=1
 ```
 
-لعرض سجلات الوحدة:
+To view the module logs:
 
 ```sh
 logcat -s SkiaMotionBlur
 ```
 
-## البناء من المصدر
+## Building from Source
 
-### المتطلبات
+### Requirements
 
 - Python 3
 - Android NDK
 - LLVM / Clang
-- CMake لتشغيل الاختبارات
+- CMake for running tests
 
-### بناء الوحدة
+### Building the Module
 
 ```sh
 python3 tools/build_runtime.py --ndk /path/to/ndk/version
 ```
 
-تُنشأ الحزمة في:
+The package is generated at:
 
 ```text
 release/skia-motion-blur-<version>.zip
 ```
 
-## الاختبارات
+## Tests
 
 ```sh
 cmake -S . -B build/host
@@ -218,19 +218,19 @@ python3 -m unittest discover -s tests
 ```
 
 > [!NOTE]
-> تحتاج اختبارات الرسم الفعلية إلى بيئة أندرويد مناسبة.
+> Actual rendering tests require a suitable Android environment.
 
-## المساهمة في المشروع
+## Contributing
 
-المساهمات والإبلاغ عن الأخطاء واختبارات التوافق مرحّب بها:
+Contributions, bug reports, and compatibility testing are welcome:
 
-- [الإبلاغ عن مشكلة](https://github.com/YasserNull/skia-motion-blur/issues)
-- [طلبات الدمج](https://github.com/YasserNull/skia-motion-blur/pulls)
+- [Report an issue](https://github.com/YasserNull/skia-motion-blur/issues)
+- [Pull requests](https://github.com/YasserNull/skia-motion-blur/pulls)
 
-## الترخيص
+## License
 
-المشروع مرخّص بموجب [GPLv3](LICENSE).
+The project is licensed under the [GPLv3](LICENSE).
 
-## التبرع
+## Donate
 
-يمكنك دعم المشروع عبر [Ko-fi](https://ko-fi.com/yassernull).
+You can support the project via [Ko-fi](https://ko-fi.com/yassernull).

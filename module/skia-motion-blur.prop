@@ -7,3 +7,4 @@ allow_packages=*
 history_scale=1
 history_timeout_ms=150
 memory_limit_mb=128
+#exclude_packages=com.example.app

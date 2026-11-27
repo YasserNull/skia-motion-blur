@@ -8,9 +8,9 @@ elif [ "${KSU:-}" = true ]; then
     ROOT_MANAGER=KernelSU
 else
     case "${MAGISK_VER_CODE:-}" in
-        ''|*[!0-9]*) abort "Install using Magisk 26+, KernelSU or APatch" ;;
+        ''|*[!0-9]*) abort "Install using Magisk 26+, KernelSU, APatch, etc." ;;
     esac
-    [ "$MAGISK_VER_CODE" -ge 26000 ] || abort "Magisk 26 or newer is required; install from the Magisk app"
+    [ "$MAGISK_VER_CODE" -ge 26000 ] || abort "Magisk 26 or newer is required."
     ROOT_MANAGER=Magisk
 fi
 SDK=$(getprop ro.build.version.sdk)

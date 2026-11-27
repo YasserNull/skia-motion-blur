@@ -1,91 +1,91 @@
 # How Skia Motion Blur works
 
-## نظرة عامة
+## Overview
 
-تضيف Skia Motion Blur تأثير ضبابية الحركة (Motion Blur) إلى مخارج رسم مؤهلة داخل نظام العرض في أندرويد.
+Skia Motion Blur adds a motion blur effect to eligible rendering outputs within the Android display system.
 
-تعتمد الوحدة على تحليل الاختلافات بين الإطارات المتتالية لتقدير اتجاه حركة العناصر ومقدارها. تستخدم هذه المعلومات لإضافة ضبابية تتناسب مع الحركة قبل عرض الصورة النهائية على الشاشة.
+The module analyzes differences between consecutive frames to estimate the direction and magnitude of object movement. It uses this information to add blur that corresponds to the motion before displaying the final image on the screen.
 
-لا تنشئ الوحدة إطارات جديدة ولا ترفع معدل الإطارات (FPS). الهدف هو تحسين المظهر البصري للحركة وجعلها تبدو أكثر سلاسة وطبيعية.
+The module does not generate new frames or increase the frame rate (FPS). The goal is to improve the visual appearance of motion and make it look smoother and more natural.
 
-## أين تعمل الوحدة داخل أندرويد؟
+## Where does the module operate within Android?
 
-تعمل الوحدة داخل SurfaceFlinger وهو المكون المسؤول عن تجميع الطبقات الرسومية القادمة من التطبيقات وواجهة النظام لإنتاج الصورة النهائية التي تظهر على الشاشة.
+The module operates within SurfaceFlinger, the component responsible for combining graphics layers from applications and the system UI to produce the final image displayed on the screen.
 
-تُعرف هذه العملية باسم التركيب الرسومي (Composition).
+This process is known as Composition.
 
-يستخدم SurfaceFlinger مكونات رسومية لتنفيذ عمليات التركيب التي تحتاج إلى المعالج الرسومي (GPU).
+SurfaceFlinger uses graphics components to perform composition operations that require the graphics processing unit (GPU).
 
-تتدخل الوحدة في مسار الرسم المدعوم لإضافة مرحلة معالجة رسومية قبل عرض الصورة النهائية.
+The module intervenes in the supported rendering path to add a graphics processing stage before displaying the final image.
 
-يسمح هذا الأسلوب بتطبيق التأثير على مستوى النظام دون الحاجة إلى تعديل التطبيقات أو الألعاب بشكل منفصل.
+This approach allows the effect to be applied at the system level without modifying individual applications or games.
 
-## مراحل المعالجة
+## Processing Stages
 
-تمر الصورة بعدة مراحل لتحديد الحركة وإنتاج تأثير الضبابية.
+The image goes through several stages to determine motion and produce the blur effect.
 
 ![Motion Blur](images/motion-blur.svg)
 
-### 1. الاحتفاظ بالإطار السابق (Frame History)
+### 1. Frame History
 
-تحتفظ الوحدة بنسخة من الصورة السابقة داخل ذاكرة المعالج الرسومي.
+The module keeps a copy of the previous image in GPU memory.
 
-تُستخدم هذه الصورة كمرجع عند وصول صورة جديدة لتحديد التغيرات التي حدثت بين الإطارين.
+This image is used as a reference when a new image arrives to identify the changes that occurred between the two frames.
 
-يمكن الاحتفاظ بنسخة مصغرة من الصورة بدلًا من استخدام دقتها الكاملة لتقليل حجم البيانات المطلوبة لتحليل الحركة.
+A downscaled copy of the image can be stored instead of using its full resolution to reduce the amount of data required for motion analysis.
 
-### 2. تحليل تفاصيل الصورة (Guide Pass)
+### 2. Guide Pass
 
-تُجهز الوحدة معلومات بصرية تساعد على مقارنة الإطار الحالي بالإطار السابق.
+The module prepares visual information that helps compare the current frame with the previous frame.
 
-تساعد هذه المرحلة على تمييز التفاصيل والاختلافات داخل الصورة وتحسين عملية البحث عن المناطق التي تغير موقعها.
+This stage helps distinguish details and differences within the image and improves the process of searching for regions that have changed position.
 
-الهدف هو توفير معلومات مناسبة لمرحلة تقدير الحركة دون الحاجة إلى إجراء جميع الحسابات على الصورة الأصلية بدقتها الكاملة.
+The goal is to provide suitable information for the motion estimation stage without having to perform all calculations on the original image at its full resolution.
 
-### 3. تقدير الحركة (Motion Estimation)
+### 3. Motion Estimation
 
-تقارن الوحدة الإطار الحالي بالإطار السابق لتقدير كيفية انتقال التفاصيل بينهما.
+The module compares the current frame with the previous frame to estimate how details have moved between them.
 
-تنتج هذه العملية معلومات تُعرف باسم متجهات الحركة (Motion Vectors).
+This process produces information known as Motion Vectors.
 
-يحتوي متجه الحركة على معلومات تمثل:
+A motion vector contains information representing:
 
-- الاتجاه الأفقي للحركة.
-- الاتجاه العمودي للحركة.
-- مقدار الإزاحة بين الإطارين.
+- The horizontal direction of motion.
+- The vertical direction of motion.
+- The amount of displacement between the two frames.
 
-على سبيل المثال عند تمرير صفحة إلى الأعلى تحاول الوحدة اكتشاف انتقال النصوص والصور من مواقعها السابقة إلى مواقعها الجديدة.
+For example, when scrolling a page upward, the module attempts to detect the movement of text and images from their previous positions to their new positions.
 
-يمكن أن تختلف متجهات الحركة من منطقة إلى أخرى داخل الصورة. يسمح ذلك بتقدير حركة عناصر متعددة تتحرك في اتجاهات مختلفة.
+Motion vectors can vary from one region of the image to another. This allows the module to estimate the motion of multiple objects moving in different directions.
 
-### 4. حساب الضبابية (Motion Blur Resolve)
+### 4. Motion Blur Resolve
 
-تستخدم الوحدة متجهات الحركة لتحديد اتجاه الضبابية وطول أثرها.
+The module uses motion vectors to determine the direction of the blur and the length of its trail.
 
-تُجمع عدة عينات لونية (Samples) من الصورة على امتداد اتجاه الحركة ثم تُدمج لإنتاج تأثير الضبابية.
+Multiple color samples are collected from the image along the direction of motion and then combined to produce the blur effect.
 
-تحتاج المناطق التي تتحرك بسرعة إلى أثر ضبابية أطول عادة من المناطق التي تتحرك ببطء.
+Fast-moving regions usually require a longer blur trail than slow-moving regions.
 
-تحاول الوحدة الحفاظ على وضوح المناطق الثابتة وتجنب إضافة ضبابية غير ضرورية إليها.
+The module attempts to preserve the clarity of stationary regions and avoid adding unnecessary blur to them.
 
-تُنفذ هذه العمليات باستخدام برامج رسومية صغيرة تُعرف باسم Shaders وتعمل على المعالج الرسومي.
+These operations are performed using small graphics programs known as Shaders that run on the GPU.
 
-### 5. عرض الصورة النهائية
+### 5. Final Image Display
 
-بعد حساب الضبابية تُدمج النتيجة مع الصورة الحالية ضمن مسار الرسم.
+After calculating the blur, the result is blended with the current image within the rendering path.
 
-تستمر الصورة بعد ذلك عبر نظام العرض في أندرويد حتى تظهر على الشاشة.
+The image then continues through the Android display system until it appears on the screen.
 
-تتكرر هذه المراحل مع الإطارات الجديدة التي يمكن للوحدة معالجتها.
+These stages are repeated with new frames that the module can process.
 
-## مسار المعالجة الرسومية
+## Graphics Processing Pipeline
 
-يوضح المخطط التالي المراحل الأساسية لعمل الوحدة.
+The following diagram illustrates the main stages of the module's operation.
 
 ```mermaid
 flowchart TD
     A[Applications and System UI] --> B[SurfaceFlinger]
-    B --> C[مخرج رسم مؤهل]
+    B --> C[Eligible Rendering Output]
     C --> D[Current Frame]
     D --> E[Guide Pass]
     H[Previous Frame] --> F[Motion Estimation]
@@ -98,110 +98,110 @@ flowchart TD
     D --> H
 ```
 
-## كيف تكتشف الوحدة الحركة؟
+## How does the module detect motion?
 
-لا تعتمد الوحدة على حركة الإصبع لتحديد اتجاه الضبابية.
+The module does not rely on finger movement to determine the direction of the blur.
 
-تعتمد بشكل أساسي على التغيرات البصرية بين الإطارات المتتالية باستخدام تقدير الحركة المستند إلى الصورة (Image-based Motion Estimation).
+It primarily relies on visual changes between consecutive frames using Image-based Motion Estimation.
 
-يسمح ذلك باكتشاف الحركة الناتجة عن التمرير أو الرسوم المتحركة أو تشغيل الفيديو دون الحاجة إلى لمس الشاشة.
+This allows it to detect motion caused by scrolling, animations, or video playback without requiring screen touches.
 
-يمكن أن يساعد لمس الشاشة على ظهور الضبابية مع الحركات الصغيرة لفترة قصيرة، لأنه يخفض الحد المطلوب لتطبيق الأثر. لا يحدد اللمس اتجاه الحركة.
+Touching the screen can help the blur appear with small movements for a short period, as it lowers the threshold required to apply the effect. Touch input does not determine the direction of motion.
 
-## كيف تقلل الوحدة استهلاك الموارد؟
+## How does the module reduce resource usage?
 
-تتطلب عملية تقدير الحركة مقارنة عدد كبير من البكسلات بين الإطارات المتتالية.
+Motion estimation requires comparing a large number of pixels between consecutive frames.
 
-عند اختيار `history_scale` بقيمة أكبر من `1`، تقلل الوحدة دقة صور المعالجة لتخفيف تكلفة هذه العملية. القيمة الافتراضية `1` تستخدم الدقة الكاملة.
+When `history_scale` is set to a value greater than `1`, the module reduces the resolution of the processing images to lower the cost of this operation. The default value of `1` uses full resolution.
 
-يعتمد هذا الأسلوب على إنشاء نسخ مصغرة من الصور المستخدمة في تحليل الحركة. يساعد ذلك على تقليل حجم البيانات وعدد العمليات الحسابية المطلوبة.
+This approach relies on creating downscaled copies of the images used for motion analysis. This helps reduce the amount of data and the number of calculations required.
 
 ![History Scale](images/history-scale.svg)
 
-يوضح الجدول التالي مثالًا على أحجام صور التحليل عند استخدام شاشة بدقة 1080 × 2400 بكسل.
+The following table shows an example of analysis image sizes when using a screen with a resolution of 1080 × 2400 pixels.
 
-| دقة التحليل | حجم صورة التحليل | نسبة عدد البكسلات |
+| Analysis Resolution | Analysis Image Size | Pixel Count Percentage |
 |---|---:|---:|
 | 100% | 1080 × 2400 | 100% |
 | 50% | 540 × 1200 | 25% |
 | 33.3% | 360 × 800 | 11.1% |
 | 25% | 270 × 600 | 6.25% |
 
-على سبيل المثال يؤدي استخدام 25% من دقة العرض والارتفاع إلى تحليل 6.25% فقط من إجمالي عدد البكسلات.
+For example, using 25% of the width and height resolution results in analyzing only 6.25% of the total pixel count.
 
-يساعد ذلك على تقليل حجم الصور المخزنة وتخفيف الحمل الناتج عن تحليل الحركة.
+This helps reduce the size of stored images and lower the workload caused by motion analysis.
 
-لكن انخفاض دقة التحليل قد يجعل اكتشاف الحركات الصغيرة والتفاصيل الدقيقة أكثر صعوبة.
+However, reducing the analysis resolution may make detecting small movements and fine details more difficult.
 
-لا يؤثر تقليل دقة التحليل على دقة الشاشة نفسها. تُدمج نتيجة الضبابية مع مخرج الرسم المؤهل بدقة إخراجه.
+Reducing the analysis resolution does not affect the screen resolution itself. The blur result is blended with the eligible rendering output at its output resolution.
 
-## استخدام المعالج الرسومي
+## GPU Usage
 
-تعتمد الوحدة على المعالج الرسومي لتنفيذ العمليات الأساسية المتعلقة بتحليل الحركة وحساب الضبابية.
+The module relies on the GPU to perform the main operations related to motion analysis and blur calculation.
 
-تُخزن الصور المستخدمة في المعالجة داخل موارد رسومية تُعرف باسم Textures.
+The images used for processing are stored in graphics resources known as Textures.
 
-تُستخدم برامج Shaders لتنفيذ العمليات الحسابية على هذه الصور والاستفادة من قدرة المعالج الرسومي على معالجة عدد كبير من البكسلات بالتوازي (Parallel Processing).
+Shaders are used to perform calculations on these images and take advantage of the GPU's ability to process a large number of pixels in parallel (Parallel Processing).
 
-يساعد هذا الأسلوب على تقليل الحاجة إلى نقل بيانات الصور بين المعالج المركزي والمعالج الرسومي.
+This approach helps reduce the need to transfer image data between the CPU and GPU.
 
-مع ذلك تظل المعالجة بحاجة إلى وقت إضافي وذاكرة وموارد رسومية.
+However, processing still requires additional time, memory, and graphics resources.
 
-## اختيار مسار الرسم
+## Rendering Path Selection
 
-تختار الوحدة مسار المعالجة تلقائيًا حسب قدرات OpenGL ES وامتدادات تعريف الرسوميات.
+The module automatically selects the processing path based on OpenGL ES capabilities and graphics driver extensions.
 
-تستخدم مرحلة تقدير الحركة العام Compute Shader عند توفر الدعم ونجاح تجميعه، أو Fragment Shader عند تعذر استخدامه. تبقى مراحل أخرى من المعالجة رسومية أيضًا.
+The general motion estimation stage uses a Compute Shader when supported and successfully compiled, or a Fragment Shader when it cannot be used. Other processing stages also run on the GPU.
 
-عند `history_scale=2–4` تستخدم الوحدة Framebuffer Fetch إذا كان مدعومًا وكان مخرج الرسم غير متعدد العينات. وإلا تستخدم نسخة منفصلة من الصورة.
+When `history_scale=2–4`, the module uses Framebuffer Fetch if supported and the rendering output is not multisampled. Otherwise, it uses a separate copy of the image.
 
-عند `history_scale=1` يُرسم التأثير بدقة الإخراج مباشرة.
+When `history_scale=1`, the effect is rendered directly at the output resolution.
 
-يمكن معرفة المسارات المستخدمة من حقلي `guide` و`composite` في ملف حالة GLES.
+The paths being used can be identified through the `guide` and `composite` fields in the GLES status file.
 
-## لماذا قد تؤثر الوحدة على الأداء؟
+## Why might the module affect performance?
 
-تضيف الوحدة مراحل معالجة رسومية إلى مسار عرض الصورة في أندرويد.
+The module adds graphics processing stages to the Android image display pipeline.
 
-تشمل هذه المراحل:
+These stages include:
 
-- تخزين الإطارات السابقة.
-- تجهيز الصور المستخدمة لتحليل الحركة.
-- حساب متجهات الحركة.
-- قراءة العينات اللونية وحساب الضبابية.
-- دمج النتيجة مع الصورة الحالية.
+- Storing previous frames.
+- Preparing images used for motion analysis.
+- Calculating motion vectors.
+- Reading color samples and calculating blur.
+- Blending the result with the current image.
 
-تعتمد تكلفة هذه العمليات على عدة عوامل مثل قوة المعالج الرسومي ودقة الشاشة وسرعة الذاكرة وعدد العينات المستخدمة في حساب الضبابية.
+The cost of these operations depends on several factors, such as GPU performance, screen resolution, memory speed, and the number of samples used for blur calculation.
 
-تحاول الوحدة تقليل هذه التكلفة مع الحفاظ على جودة التأثير قدر الإمكان.
+The module attempts to reduce this cost while maintaining the quality of the effect as much as possible.
 
-## الفرق بين ضبابية الحركة وتوليد الإطارات
+## The Difference Between Motion Blur and Frame Generation
 
-تختلف ضبابية الحركة (Motion Blur) عن توليد الإطارات (Frame Generation) رغم أن كليهما يهدف إلى تحسين تجربة مشاهدة الحركة.
+Motion Blur differs from Frame Generation, although both aim to improve the motion viewing experience.
 
-| التقنية | طريقة العمل |
+| Technique | How It Works |
 |---|---|
-| Motion Blur | تعديل الإطارات الموجودة لإضافة أثر بصري باتجاه الحركة. |
-| Frame Generation | إنشاء إطارات إضافية بين الإطارات الأصلية. |
+| Motion Blur | Modifies existing frames to add a visual effect in the direction of motion. |
+| Frame Generation | Creates additional frames between the original frames. |
 
-تعمل Skia Motion Blur على تحسين المظهر البصري للإطارات الموجودة دون إنشاء إطارات إضافية.
+Skia Motion Blur improves the visual appearance of existing frames without generating additional frames.
 
-قد تبدو الحركة أكثر سلاسة عند استخدام الضبابية رغم بقاء معدل الإطارات كما هو.
+Motion may appear smoother when using blur even though the frame rate remains unchanged.
 
-## حدود تقدير الحركة
+## Motion Estimation Limitations
 
-تعتمد الوحدة على المعلومات البصرية الموجودة داخل الإطارات ولا تحصل على متجهات الحركة الأصلية من محركات الألعاب أو التطبيقات.
+The module relies on visual information within the frames and does not obtain original motion vectors from game engines or applications.
 
-تُحسب متجهات الحركة من خلال مقارنة الصور بدلًا من الاعتماد على المواقع الحقيقية للعناصر داخل المشهد.
+Motion vectors are calculated by comparing images rather than relying on the actual positions of objects within the scene.
 
-لهذا السبب قد تواجه عملية تقدير الحركة بعض الصعوبات في حالات مثل:
+For this reason, motion estimation may encounter difficulties in situations such as:
 
-- الحركة السريعة جدًا.
-- تغير المشهد بالكامل بين إطارين.
-- ظهور عناصر جديدة أو اختفاء عناصر موجودة.
-- وجود عناصر شفافة أو تفاصيل متشابهة.
-- تحرك عدة عناصر متداخلة في اتجاهات مختلفة.
+- Very fast motion.
+- Complete scene changes between two frames.
+- New objects appearing or existing objects disappearing.
+- Transparent objects or similar details.
+- Multiple overlapping objects moving in different directions.
 
-قد تؤدي هذه الحالات إلى تقدير غير دقيق للحركة أو ظهور بعض الآثار البصرية غير المرغوبة (Visual Artifacts).
+These situations may result in inaccurate motion estimation or unwanted visual effects (Visual Artifacts).
 
-تعتمد جودة النتيجة النهائية على دقة تقدير الحركة وطبيعة المحتوى المعروض.
+The quality of the final result depends on the accuracy of motion estimation and the nature of the displayed content.
