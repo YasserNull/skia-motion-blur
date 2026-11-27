@@ -6,7 +6,7 @@ umask 022
 ui_print() { echo "$1"; }
 
 require_manager() {
-    ui_print "Install this ZIP from the Magisk 21+, KernelSU or APatch manager app."
+    ui_print "Install this ZIP from the Magisk 26+, KernelSU or APatch manager app."
     exit 1
 }
 
@@ -21,7 +21,7 @@ mount /data 2>/dev/null
 case "${MAGISK_VER_CODE:-}" in
     ''|*[!0-9]*) require_manager ;;
 esac
-[ "$MAGISK_VER_CODE" -ge 21000 ] || require_manager
+[ "$MAGISK_VER_CODE" -ge 26000 ] || require_manager
 
 install_module
 exit 0

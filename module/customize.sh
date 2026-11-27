@@ -8,14 +8,9 @@ elif [ "${KSU:-}" = true ]; then
     ROOT_MANAGER=KernelSU
 else
     case "${MAGISK_VER_CODE:-}" in
-        ''|*[!0-9]*) abort "Install using Magisk 21+, KernelSU or APatch" ;;
+        ''|*[!0-9]*) abort "Install using Magisk 26+, KernelSU or APatch" ;;
     esac
-    # The type declaration in sepolicy.rule requires Magisk 21's policy syntax.
-    [ "$MAGISK_VER_CODE" -ge 21000 ] || abort "Magisk 21 or newer is required; install from the Magisk app"
-    if [ "$MAGISK_VER_CODE" -lt 26000 ]; then
-        ui_print "! Magisk below 26 may have SELinux or Magic Mount compatibility issues."
-        ui_print "! Installing Magisk 26 or newer is recommended."
-    fi
+    [ "$MAGISK_VER_CODE" -ge 26000 ] || abort "Magisk 26 or newer is required; install from the Magisk app"
     ROOT_MANAGER=Magisk
 fi
 SDK=$(getprop ro.build.version.sdk)

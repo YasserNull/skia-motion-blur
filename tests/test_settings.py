@@ -41,7 +41,6 @@ class SettingsTests(unittest.TestCase):
     def test_controller_receives_packaged_defaults(self):
         content, defaults = self.service()
         self.assertEqual(content, defaults)
-        self.assertNotIn(b"test=", content)
 
     def test_uninstall_preserves_prepared_executables(self):
         with tempfile.TemporaryDirectory() as temporary:

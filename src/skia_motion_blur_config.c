@@ -156,7 +156,6 @@ bool mb_parse_config(const char *text, size_t size, MbConfig *result) {
         valid = false;
         if (!strcmp(key, "enabled")) valid = boolean(value, &next->enabled);
         else if (!strcmp(key, "debug")) valid = boolean(value, &next->debug);
-        else if (!strcmp(key, "temp_settings")) valid = boolean(value, &next->temp_settings);
         else if (!strcmp(key, "log")) valid = boolean(value, &next->log);
         else if (!strcmp(key, "strength")) valid = mb_parse_float(value, &next->strength, 0.0f, 8.0f);
         else if (!strcmp(key, "exposure_ms")) valid = mb_parse_float(value, &next->exposure_ms, 1.0f, 50.0f);

@@ -1,7 +1,6 @@
 enabled=1
 strength=8.0
 exposure_ms=8.333
-temp_settings=1
 log=0
 debug=0
 allow_packages=*

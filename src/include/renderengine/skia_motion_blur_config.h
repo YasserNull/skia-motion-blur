@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define MB_CONFIG_MAX_TEXT 16384
-#define MB_CONFIG_DEFAULTS { .temp_settings = true, .strength = 3.0f, .exposure_ms = 8.333f, .max_layers = 3, .history_scale = 1, \
+#define MB_CONFIG_DEFAULTS { .strength = 3.0f, .exposure_ms = 8.333f, .max_layers = 3, .history_scale = 1, \
     .history_timeout_ms = 150, .memory_limit_mb = 128 }
 
 typedef struct {
@@ -16,7 +16,6 @@ typedef struct {
 typedef struct {
     bool enabled;
     bool debug;
-    bool temp_settings;
     bool log;
     float strength;
     float exposure_ms;

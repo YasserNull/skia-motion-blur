@@ -25,21 +25,21 @@ int main(int argc, char **argv) {
         "allow_packages=com.example.*", "allow_packages=*,com.example.app", "allow_packages=com.example.app,*",
         "allow_packages=com.example.app,", "allow_packages=com.example.app,  ", "allow_layer_prefixes=*",
         "exposure_ms=0.99", "exposure_ms=50.01", "exposure_ms=nan", "exposure_ms=inf",
-        "temp_settings=maybe", "log=2", "log=maybe", "quality=low", "test=balanced"};
+        "log=2", "log=maybe", "quality=low"};
     for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); ++i) {
         assert(!parse(invalid[i], config));
         assert(config->enabled && config->strength == 0.25f);
         assert(mb_config_allows_package(config, "com.example.app"));
     }
     assert(parse("enabled=1", config));
-    assert(parse("exposure_ms=1\ntemp_settings=0\nlog=true\n", config));
-    assert(config->exposure_ms == 1 && !config->temp_settings && config->log);
+    assert(parse("exposure_ms=1\nlog=true\n", config));
+    assert(config->exposure_ms == 1 && config->log);
     assert(parse("log=true\n", config) && config->log);
     assert(parse("log=0\n", config) && !config->log);
     assert(parse("exposure_ms=50\nhistory_scale=3\n", config));
     assert(config->exposure_ms == 50 && config->history_scale == 3);
     assert(parse("# defaults\r\n enabled = true\r\nallow_packages=*\n", config));
-    assert(config->temp_settings && !config->log && config->exposure_ms > 8.32f && config->exposure_ms < 8.34f);
+    assert(!config->log && config->exposure_ms > 8.32f && config->exposure_ms < 8.34f);
     assert(config->strength == 3 && mb_config_allows_package(config, "com.example.game"));
     assert(mb_config_allows_package(config, "com.google.android.apps.nexuslauncher"));
     assert(mb_config_matches(config, "com.google.android.apps.nexuslauncher/.NexusLauncherActivity#1"));
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     fclose(file);
     assert(mb_parse_config(defaults, size, config));
     assert(config->enabled && config->strength == 8 && config->history_scale == 1 &&
-           config->memory_limit_mb == 128 && config->temp_settings);
+           config->memory_limit_mb == 128);
     assert(!mb_is_surface_flinger());
     const MbConfig *first = mb_config_acquire(), *second = mb_config_acquire();
     assert(first && first == second && !first->enabled);

@@ -29,24 +29,23 @@ class InstallerManagerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 90)
         self.assertIn("SDK_CHECK_REACHED", result.stderr)
         self.assertIn("Supported range:", result.stderr)
-        self.assertNotIn("Magisk 21 or newer is required", result.stderr)
+        self.assertNotIn("Magisk 26 or newer is required", result.stderr)
 
-    def test_minimum_magisk_warns_and_continues(self):
+    def test_magisk_21_is_rejected(self):
         result = self.install(MAGISK_VER_CODE="21000")
-        self.assert_passes_manager(result)
-        self.assertIn("SELinux or Magic Mount", result.stdout)
-        self.assertIn("Magisk 26 or newer is recommended", result.stdout)
+        self.assertEqual(result.returncode, 90)
+        self.assertIn("Magisk 26 or newer is required", result.stderr)
+        self.assertNotIn("SDK_CHECK_REACHED", result.stderr)
 
-    def test_magisk_25_warns_and_continues(self):
+    def test_magisk_25_is_rejected(self):
         result = self.install(MAGISK_VER_CODE="25200")
-        self.assert_passes_manager(result)
-        self.assertIn("SELinux or Magic Mount", result.stdout)
-        self.assertIn("Magisk 26 or newer is recommended", result.stdout)
+        self.assertEqual(result.returncode, 90)
+        self.assertIn("Magisk 26 or newer is required", result.stderr)
+        self.assertNotIn("SDK_CHECK_REACHED", result.stderr)
 
     def test_magisk_26(self):
         result = self.install(MAGISK_VER_CODE="26000")
         self.assert_passes_manager(result)
-        self.assertNotIn("SELinux or Magic Mount", result.stdout)
 
     def test_newer_magisk(self):
         self.assert_passes_manager(self.install(MAGISK_VER_CODE="30000"))
@@ -54,7 +53,7 @@ class InstallerManagerTests(unittest.TestCase):
     def test_old_magisk_is_rejected(self):
         result = self.install(MAGISK_VER_CODE="20999")
         self.assertEqual(result.returncode, 90)
-        self.assertIn("Magisk 21 or newer is required", result.stderr)
+        self.assertIn("Magisk 26 or newer is required", result.stderr)
         self.assertNotIn("SDK_CHECK_REACHED", result.stderr)
 
     def test_malformed_magisk_version_is_rejected(self):

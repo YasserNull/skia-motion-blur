@@ -18,9 +18,8 @@ static bool same_package(const char *first, const char *second) {
     return !strcmp(first ? first : "", second ? second : "");
 }
 
-static bool config_check_due(uint64_t now, bool initialized, bool live, bool valid,
-                             bool mirrored, uint64_t deadline) {
-    return !initialized || (now >= deadline && (live || !valid || !mirrored));
+static bool config_check_due(uint64_t now, uint64_t deadline) {
+    return now >= deadline;
 }
 
 static uint64_t focus_interval(const MbConfig *config, bool valid, bool mirrored) {
@@ -52,25 +51,19 @@ int main(int argc, char **argv) {
     bool probe_blocked = false, owned = false;
     MbConfig *config = mb_config_create();
     if (!config) { unlink(MB_LEASE_PATH); return 1; }
-    bool valid = false, mirrored = false, initialized = false, temp_settings = false, mode_selected = false;
+    bool valid = false, mirrored = false;
     bool input_started = false;
     uint64_t next_config_check = 0, next_focus_check = 0;
     char *package = NULL;
     while (running && access(disabled, F_OK) && access(removed, F_OK)) {
         uint64_t now = mb_millis();
-        if (config_check_due(now, initialized, temp_settings, valid, mirrored, next_config_check)) {
+        if (config_check_due(now, next_config_check)) {
             char *source = malloc(MB_CONFIG_MAX_TEXT + 2);
             MbConfig *next = mb_config_create();
             if (!source || !next) { free(source); mb_config_free(next); break; }
             size_t size = mb_read_text(settings_path, source, MB_CONFIG_MAX_TEXT + 2);
             bool next_valid = size && mb_parse_config(source, size, next);
-            // The first valid load fixes the settings mode for this controller run.
-            if (next_valid && !mode_selected) {
-                temp_settings = next->temp_settings;
-                mode_selected = true;
-            }
-            initialized = true;
-            next_config_check = now + 5000;
+            next_config_check = now + 3000;
             if (!next_valid) strcpy(source, "enabled=0\n");
             if (!previous_config || strcmp(source, previous_config) || !mirrored) {
                 mirrored = mb_write_control("/data/misc/skia-motion-blur/skia-motion-blur.prop", source);
@@ -95,8 +88,8 @@ int main(int argc, char **argv) {
                 input_started = true;
             }
             if (config->log) {
-                MB_LOG(config->log, ANDROID_LOG_INFO, "Controller config valid=%d mirrored=%d temp_settings_start=%d enabled=%d strength=%.2f exposure_ms=%.2f scale=%u timeout_ms=%u memory_mb=%u packages=%zu debug=%d",
-                    valid, mirrored, temp_settings, config->enabled, config->strength,
+                MB_LOG(config->log, ANDROID_LOG_INFO, "Controller config valid=%d mirrored=%d enabled=%d strength=%.2f exposure_ms=%.2f scale=%u timeout_ms=%u memory_mb=%u packages=%zu debug=%d",
+                    valid, mirrored, config->enabled, config->strength,
                     config->exposure_ms, config->history_scale, config->history_timeout_ms,
                     config->memory_limit_mb, config->packages.count, config->debug);
             }

@@ -46,12 +46,9 @@ int main(void) {
     assert(mb_parse_composition("0x00000000: 00000000 00000000 12345678 00000000 invalid!") == -1);
     assert(mb_parse_composition("0x00000000: 00000000 00000000 12345678 00000000 00000001    '....'") == 1);
     assert(same_package(NULL, "") && !same_package("com.example.app", "com.example.other"));
-    assert(config_check_due(0, false, false, false, false, 5000));
-    assert(!config_check_due(4000, true, true, false, false, 5000));
-    assert(config_check_due(5000, true, false, false, true, 5000));
-    assert(config_check_due(5000, true, false, true, false, 5000));
-    assert(!config_check_due(5000, true, false, true, true, 5000));
-    assert(config_check_due(5000, true, true, true, true, 5000));
+    assert(config_check_due(0, 0));
+    assert(!config_check_due(2999, 3000));
+    assert(config_check_due(3000, 3000));
     MbConfig *settings = mb_config_create();
     assert(settings);
     assert(focus_interval(settings, true, true) == 5000);
